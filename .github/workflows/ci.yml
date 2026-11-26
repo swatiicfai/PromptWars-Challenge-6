@@ -1,0 +1,33 @@
+name: AuraAir CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify Repository Size (< 10 MB Constraint)
+        run: |
+          REPO_SIZE_KB=$(du -sk . | cut -f1)
+          echo "Current Repository Size: ${REPO_SIZE_KB} KB"
+          if [ $REPO_SIZE_KB -gt 10240 ]; then
+            echo "Error: Repository exceeds 10 MB limit!"
+            exit 1
+          fi
+          echo "Repository size check passed: Clean & lightweight (< 10 MB)"
+
+      - name: Execute 97-Test Automated Verification Suite
+        run: |
+          node tests/run-tests.js

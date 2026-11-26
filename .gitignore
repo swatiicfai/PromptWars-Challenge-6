@@ -1,0 +1,15 @@
+# Dependencies & Cache
+node_modules/
+.npm/
+.cache/
+
+# Environment & Credentials
+.env
+.env.local
+*.log
+
+# Build & OS Artefacts
+dist/
+build/
+.DS_Store
+Thumbs.db

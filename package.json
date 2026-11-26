@@ -1,0 +1,26 @@
+{
+  "name": "auraair-urban-air-quality-assistant",
+  "version": "1.0.0",
+  "description": "GenAI-powered Urban Air Quality & Winter Smog Defense Assistant for Families and Communities (PromptWars Challenge 6)",
+  "main": "js/app.js",
+  "scripts": {
+    "test": "node tests/run-tests.js",
+    "start": "npx serve ."
+  },
+  "keywords": [
+    "air-quality",
+    "winter-smog",
+    "pm25",
+    "genai",
+    "gemini",
+    "urban-health",
+    "accessibility",
+    "promptwars"
+  ],
+  "author": "Swati Gupta",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/swatiicfai/PromptWars-Challenge-6.git"
+  }
+}
