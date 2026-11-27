@@ -1,6 +1,6 @@
 {
   "name": "auraair-urban-air-quality-assistant",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "GenAI-powered Urban Air Quality & Winter Smog Defense Assistant for Families and Communities (PromptWars Challenge 6)",
   "main": "js/app.js",
   "scripts": {

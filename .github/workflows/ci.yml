@@ -28,6 +28,14 @@ jobs:
           fi
           echo "Repository size check passed: Clean & lightweight (< 10 MB)"
 
-      - name: Execute 97-Test Automated Verification Suite
+      - name: Syntax Check All JavaScript Modules
+        run: |
+          node --check js/aqi-engine.js
+          node --check js/impact-calculator.js
+          node --check js/gemini.js
+          node --check js/app.js
+          node --check tests/run-tests.js
+
+      - name: Execute Automated Verification Suite
         run: |
           node tests/run-tests.js

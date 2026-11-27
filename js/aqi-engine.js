@@ -1,9 +1,10 @@
 /**
  * @file aqi-engine.js
  * @description Atmospheric air quality calculation engine implementing US EPA and Indian NAQI
- * standards, pollutant sub-indices, thermal inversion cycle modeling, and health risk classifications.
+ * standards, pollutant sub-indices, thermal inversion cycle modeling, contextual verdicts,
+ * and health risk classifications.
  * Compatible with modern browser runtime and Node.js test environments.
- * @version 1.0.0
+ * @version 2.0.0
  * @license MIT
  */
 
@@ -18,7 +19,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
 
   /**
-   * EPA Breakpoint Table for PM2.5 (ug/m3) and PM10 (ug/m3)
+   * US EPA Breakpoint Table for PM2.5 (ug/m3) and PM10 (ug/m3)
    */
   const EPA_BREAKPOINTS = {
     pm25: [
@@ -27,7 +28,7 @@
       { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150, category: 'Unhealthy for Sensitive Groups', level: 3, color: '#f97316', badge: '🟠' },
       { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200, category: 'Unhealthy', level: 4, color: '#ef4444', badge: '🔴' },
       { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300, category: 'Very Unhealthy', level: 5, color: '#8b5cf6', badge: '🟣' },
-      { cLow: 250.5, cHigh: 500.4, iLow: 301, iHigh: 500, category: 'Hazardous', level: 6, color: '#7f1d1d', badge: '🟤' }
+      { cLow: 250.5, cHigh: 500.4, iLow: 301, iHigh: 500, category: 'Hazardous', level: 6, color: '#b91c1c', badge: '🟤' }
     ],
     pm10: [
       { cLow: 0, cHigh: 54, iLow: 0, iHigh: 50, category: 'Good', level: 1, color: '#10b981', badge: '🟢' },
@@ -35,7 +36,29 @@
       { cLow: 155, cHigh: 254, iLow: 101, iHigh: 150, category: 'Unhealthy for Sensitive Groups', level: 3, color: '#f97316', badge: '🟠' },
       { cLow: 255, cHigh: 354, iLow: 151, iHigh: 200, category: 'Unhealthy', level: 4, color: '#ef4444', badge: '🔴' },
       { cLow: 355, cHigh: 424, iLow: 201, iHigh: 300, category: 'Very Unhealthy', level: 5, color: '#8b5cf6', badge: '🟣' },
-      { cLow: 425, cHigh: 604, iLow: 301, iHigh: 500, category: 'Hazardous', level: 6, color: '#7f1d1d', badge: '🟤' }
+      { cLow: 425, cHigh: 604, iLow: 301, iHigh: 500, category: 'Hazardous', level: 6, color: '#b91c1c', badge: '🟤' }
+    ]
+  };
+
+  /**
+   * Indian National Air Quality Index (CPCB NAQI) Breakpoint Table (ug/m3)
+   */
+  const INDIAN_NAQI_BREAKPOINTS = {
+    pm25: [
+      { cLow: 0, cHigh: 30, iLow: 0, iHigh: 50, category: 'Good' },
+      { cLow: 31, cHigh: 60, iLow: 51, iHigh: 100, category: 'Satisfactory' },
+      { cLow: 61, cHigh: 90, iLow: 101, iHigh: 200, category: 'Moderately Polluted' },
+      { cLow: 91, cHigh: 120, iLow: 201, iHigh: 300, category: 'Poor' },
+      { cLow: 121, cHigh: 250, iLow: 301, iHigh: 400, category: 'Very Poor' },
+      { cLow: 251, cHigh: 500, iLow: 401, iHigh: 500, category: 'Severe' }
+    ],
+    pm10: [
+      { cLow: 0, cHigh: 50, iLow: 0, iHigh: 50, category: 'Good' },
+      { cLow: 51, cHigh: 100, iLow: 51, iHigh: 100, category: 'Satisfactory' },
+      { cLow: 101, cHigh: 250, iLow: 101, iHigh: 200, category: 'Moderately Polluted' },
+      { cLow: 251, cHigh: 350, iLow: 201, iHigh: 300, category: 'Poor' },
+      { cLow: 351, cHigh: 430, iLow: 301, iHigh: 400, category: 'Very Poor' },
+      { cLow: 431, cHigh: 600, iLow: 401, iHigh: 500, category: 'Severe' }
     ]
   };
 
@@ -120,7 +143,7 @@
    * @returns {number} Calculated AQI integer
    */
   function calculateSubIndex(concentration, breakpoints) {
-    if (typeof concentration !== 'number' || isNaN(concentration) || concentration < 0) {
+    if (typeof concentration !== 'number' || Number.isNaN(concentration) || concentration < 0) {
       return 0;
     }
 
@@ -134,7 +157,6 @@
       }
     }
 
-    // If concentration exceeds highest bracket, scale linearly up to 500+
     const last = breakpoints[breakpoints.length - 1];
     if (c > last.cHigh) {
       const extrapolated = last.iHigh + ((c - last.cHigh) * 0.5);
@@ -145,17 +167,47 @@
   }
 
   /**
-   * Get health category metadata for a given AQI value
+   * Computes Indian CPCB NAQI category and composite value from PM2.5 and PM10
+   *
+   * @param {number} pm25 - PM2.5 concentration (ug/m3)
+   * @param {number} pm10 - PM10 concentration (ug/m3)
+   * @returns {Object} Indian NAQI value and category
+   */
+  function getIndianNAQIAssessment(pm25, pm10) {
+    const subPm25 = calculateSubIndex(pm25, INDIAN_NAQI_BREAKPOINTS.pm25);
+    const subPm10 = calculateSubIndex(pm10, INDIAN_NAQI_BREAKPOINTS.pm10);
+    const naqi = Math.max(subPm25, subPm10);
+
+    let category = 'Good';
+    if (naqi > 400) {
+      category = 'Severe';
+    } else if (naqi > 300) {
+      category = 'Very Poor';
+    } else if (naqi > 200) {
+      category = 'Poor';
+    } else if (naqi > 100) {
+      category = 'Moderately Polluted';
+    } else if (naqi > 50) {
+      category = 'Satisfactory';
+    }
+
+    return { naqi, category, subPm25, subPm10 };
+  }
+
+  /**
+   * Get health category metadata for a given US EPA AQI value
    *
    * @param {number} aqi - Overall AQI value
-   * @returns {Object} Category info with color, label, level, and actions
+   * @returns {Object} Category info with color, label, level, statusKey, and actions
    */
   function getAQICategory(aqi) {
-    const val = Number(aqi) || 0;
+    const parsed = Number(aqi);
+    const val = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
 
     if (val <= 50) {
       return {
         category: 'Good',
+        statusKey: 'good',
         level: 1,
         color: '#10b981',
         badge: '🟢',
@@ -166,9 +218,11 @@
         outdoorExerciseSafe: true,
         maskRecommended: false
       };
-    } else if (val <= 100) {
+    }
+    if (val <= 100) {
       return {
         category: 'Moderate',
+        statusKey: 'moderate',
         level: 2,
         color: '#f59e0b',
         badge: '🟡',
@@ -179,9 +233,11 @@
         outdoorExerciseSafe: true,
         maskRecommended: false
       };
-    } else if (val <= 150) {
+    }
+    if (val <= 150) {
       return {
         category: 'Unhealthy for Sensitive Groups',
+        statusKey: 'moderate',
         level: 3,
         color: '#f97316',
         badge: '🟠',
@@ -192,9 +248,11 @@
         outdoorExerciseSafe: false,
         maskRecommended: true
       };
-    } else if (val <= 200) {
+    }
+    if (val <= 200) {
       return {
         category: 'Unhealthy',
+        statusKey: 'unhealthy',
         level: 4,
         color: '#ef4444',
         badge: '🔴',
@@ -205,9 +263,11 @@
         outdoorExerciseSafe: false,
         maskRecommended: true
       };
-    } else if (val <= 300) {
+    }
+    if (val <= 300) {
       return {
         category: 'Very Unhealthy',
+        statusKey: 'unhealthy',
         level: 5,
         color: '#8b5cf6',
         badge: '🟣',
@@ -218,20 +278,54 @@
         outdoorExerciseSafe: false,
         maskRecommended: true
       };
-    } else {
-      return {
-        category: 'Hazardous (Severe Smog)',
-        level: 6,
-        color: '#7f1d1d',
-        badge: '🟤',
-        textColor: '#450a0a',
-        bgColor: '#fef2f2',
-        advisory: 'Health emergency warning: Entire population is likely to be affected. Keep all windows sealed.',
-        ventilateSafe: false,
-        outdoorExerciseSafe: false,
-        maskRecommended: true
-      };
     }
+    return {
+      category: 'Hazardous (Severe Smog)',
+      statusKey: 'hazardous',
+      level: 6,
+      color: '#e11d48',
+      badge: '🟤',
+      textColor: '#450a0a',
+      bgColor: '#fef2f2',
+      advisory: 'Health emergency warning: Entire population is likely to be affected. Keep all windows sealed.',
+      ventilateSafe: false,
+      outdoorExerciseSafe: false,
+      maskRecommended: true
+    };
+  }
+
+  /**
+   * Computes dynamic winter inversion risk tier from current AQI
+   *
+   * @param {number} aqi - Current AQI
+   * @returns {string} Risk tier label
+   */
+  function getInversionRiskTier(aqi) {
+    const val = Number(aqi) || 0;
+    if (val <= 100) return 'Low';
+    if (val <= 200) return 'Moderate';
+    if (val <= 300) return 'High';
+    if (val <= 400) return 'Severe';
+    return 'Extreme';
+  }
+
+  /**
+   * Estimates consistent pollutant concentrations from an AQI value and city baseline
+   *
+   * @param {number} aqi - Active AQI value
+   * @param {Object} cityProfile - Selected city profile
+   * @returns {Object} Estimated pm25, pm10, no2 in ug/m3
+   */
+  function estimatePollutantsFromAQI(aqi, cityProfile) {
+    const city = cityProfile || PRESET_CITIES['delhi-ncr'];
+    const safeAqi = Math.max(0, Number(aqi) || 0);
+    const ratio = safeAqi / (city.aqi || 300);
+
+    return {
+      pm25: Math.round(city.pm25 * ratio * 10) / 10,
+      pm10: Math.round(city.pm10 * ratio * 10) / 10,
+      no2: Math.round(city.no2 * ratio * 10) / 10
+    };
   }
 
   /**
@@ -240,7 +334,7 @@
    * Solar heating breaks the inversion layer between 12:00 PM and 3:30 PM.
    *
    * @param {number} baseAQI - Baseline AQI for the locality
-   * @returns {Array<Object>} 24-hour projection with hour, expectedAQI, and windowType
+   * @returns {Array<Object>} 24-hour projection with hour, aqi, category, and windowType
    */
   function getHourlyInversionForecast(baseAQI) {
     const baseline = Math.max(10, Number(baseAQI) || 150);
@@ -249,24 +343,15 @@
     for (let hour = 0; hour < 24; hour++) {
       let multiplier = 1.0;
 
-      // Deep night & morning thermal inversion (cold air trapped close to ground)
       if (hour >= 0 && hour <= 8) {
         multiplier = 1.25 + 0.1 * Math.sin(((hour - 4) / 4) * Math.PI);
-      }
-      // Morning rush hour + lingering inversion
-      else if (hour > 8 && hour <= 11) {
+      } else if (hour > 8 && hour <= 11) {
         multiplier = 1.15 - ((hour - 8) * 0.08);
-      }
-      // Solar convective window (Sun breaks inversion layer; best ventilation hours)
-      else if (hour > 11 && hour <= 15) {
+      } else if (hour > 11 && hour <= 15) {
         multiplier = 0.72 + ((hour - 13) * 0.03);
-      }
-      // Evening rush hour & cooling surface inversion starts reforming
-      else if (hour > 15 && hour <= 19) {
+      } else if (hour > 15 && hour <= 19) {
         multiplier = 1.05 + ((hour - 15) * 0.05);
-      }
-      // Late night cooling and heavy smog accumulation
-      else {
+      } else {
         multiplier = 1.20 + ((hour - 20) * 0.03);
       }
 
@@ -283,16 +368,62 @@
       }
 
       hourly.push({
-        hour: hour,
+        hour,
         timeLabel: `${hour.toString().padStart(2, '0')}:00`,
         aqi: projectedAQI,
         category: getAQICategory(projectedAQI).category,
-        windowType: windowType,
-        recommendation: recommendation
+        windowType,
+        recommendation
       });
     }
 
     return hourly;
+  }
+
+  /**
+   * Computes contextual real-time decision verdict from AQI, persona, and hour of day
+   *
+   * @param {Object} params - Context parameters
+   * @param {number} params.aqi - Current AQI
+   * @param {string} params.persona - User persona key
+   * @param {number} [params.hour] - Hour (0-23), defaults to current local hour
+   * @returns {Object} Actionable decision flags and summary
+   */
+  function getContextDecisionVerdict({ aqi, persona = 'family', hour } = {}) {
+    const safeAqi = Number.isFinite(Number(aqi)) ? Math.max(0, Number(aqi)) : 200;
+    const currentHour = Number.isInteger(hour) ? hour : new Date().getHours();
+    const cat = getAQICategory(safeAqi);
+    const isDipWindow = currentHour >= 12 && currentHour <= 15;
+    const isPeakInversion = (currentHour >= 6 && currentHour <= 9) || (currentHour >= 19 && currentHour <= 23);
+
+    const sensitivePersona = persona === 'family' || persona === 'elderly_asthma';
+    const ventilateNow = safeAqi <= 100 || (isDipWindow && safeAqi <= 180 && !sensitivePersona);
+    const maskRequired = safeAqi > 100 || (sensitivePersona && safeAqi > 80);
+    const outdoorExerciseSafe = safeAqi <= 100 && !isPeakInversion;
+
+    let headline = 'Moderate Air — Observe Sensitive Precautions';
+    if (safeAqi > 300) {
+      headline = isDipWindow
+        ? 'Severe Inversion Alert — Brief 10-Min Filter Flush Only; Keep N95 On Outside'
+        : 'Smog Emergency — Seal Windows, Run Indoor Filtration & Avoid Outdoor Exertion';
+    } else if (safeAqi > 150) {
+      headline = isDipWindow
+        ? 'Convective Dip Window Active — Best Period for Essential Errands with N95'
+        : 'Unhealthy Smog Layer — Stay Indoors Until 12:30 PM Convective Dispersion';
+    } else if (safeAqi <= 50) {
+      headline = 'Clean Air — Natural Cross-Ventilation & Outdoor Exercise Safe';
+    }
+
+    return {
+      statusKey: cat.statusKey,
+      ventilateNow,
+      maskRequired,
+      outdoorExerciseSafe,
+      isDipWindow,
+      isPeakInversion,
+      bestWindow: '12:30 PM – 03:30 PM',
+      headline
+    };
   }
 
   /**
@@ -326,7 +457,7 @@
           : 'ADVISORY: Monitor peak expiratory flow and stay in filtered indoor zones.',
         morningRoutine: '06:00 - 09:30: Strictly cancel morning walks. Cold air + PM2.5 creates acute airway resistance. Practice indoor stretching instead.',
         middayRoutine: '13:00 - 14:00: Safest period for essential clinic visits or doctor appointments when inversion layer breaks.',
-        eveningRoutine: '17:30 - 20:00: Avoid exposure to burning incense, mosquitos coils, or frying oil fumes.',
+        eveningRoutine: '17:30 - 20:00: Avoid exposure to burning incense, mosquito coils, or frying oil fumes.',
         nightRoutine: '21:00 - 06:00: Position DIY HEPA filter 1 meter away from bedhead. Warm steam inhalation if experiencing airway tickle.'
       },
       commuter: {
@@ -369,10 +500,15 @@
 
   return {
     EPA_BREAKPOINTS,
+    INDIAN_NAQI_BREAKPOINTS,
     PRESET_CITIES,
     calculateSubIndex,
+    getIndianNAQIAssessment,
     getAQICategory,
+    getInversionRiskTier,
+    estimatePollutantsFromAQI,
     getHourlyInversionForecast,
+    getContextDecisionVerdict,
     getPersonalizedRoutine
   };
 });

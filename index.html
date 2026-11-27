@@ -4,75 +4,62 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://generativelanguage.googleapis.com;" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://generativelanguage.googleapis.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
   <meta name="description" content="AuraAir - GenAI-powered Urban Air Quality Assistant helping families and communities navigate severe winter smog and thermal inversion." />
   <meta name="theme-color" content="#090d16" />
-  <title>AuraAir – Urban Air Quality & Smog Defense Assistant</title>
+  <title>AuraAir – Urban Air Quality &amp; Smog Defense Assistant</title>
 
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <!-- Custom Atmospheric Stylesheet -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body class="bg-[#090d16] text-slate-100 min-h-screen flex flex-col antialiased">
-  <!-- Accessibility Skip Link -->
+<body class="app-body">
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  <!-- Screen Reader Live Region -->
   <div id="screenReaderLive" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+  <div id="statusToast" class="status-toast hidden" role="status" aria-live="polite" aria-atomic="true"></div>
 
-  <!-- Header / Nav -->
-  <header role="banner" class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-6">
-      <div class="flex items-center space-x-4">
-        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-teal-500/25">
-          <span class="text-2xl" aria-hidden="true">🍃</span>
-        </div>
+  <header role="banner" class="site-header">
+    <div class="container header-top">
+      <div class="brand-group">
+        <div class="brand-icon" aria-hidden="true">🍃</div>
         <div>
-          <div class="flex items-center space-x-3">
-            <h1 class="text-2xl font-black tracking-tight text-white">AuraAir</h1>
-            <span class="px-2.5 py-1 rounded text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">Challenge 6</span>
+          <div class="brand-title-row">
+            <h1 class="brand-title">AuraAir</h1>
+            <span class="challenge-pill">Challenge 6</span>
           </div>
-          <p class="text-sm text-slate-300">Urban Winter Smog & Community Defense Assistant</p>
+          <p class="brand-subtitle">Urban Winter Smog &amp; Community Defense Assistant</p>
         </div>
       </div>
 
-      <!-- Quick Accessibility & Mode Toggles -->
-      <div class="flex items-center flex-wrap gap-3">
-        <span id="apiStatusBadge" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-          Mode: Intelligent Demo
+      <div class="header-actions">
+        <span id="apiStatusBadge" class="status-badge status-badge-demo">
+          Mode: Intelligent Demo (Zero Key Required)
         </span>
 
-        <button id="highContrastToggle" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors" title="Toggle High Contrast for Visual Impairments" aria-label="Toggle High Contrast Mode">
+        <button id="highContrastToggle" type="button" class="a11y-btn" aria-pressed="false" title="Toggle High Contrast for Visual Impairments" aria-label="Toggle High Contrast Mode">
           👁️ High Contrast
         </button>
 
-        <button id="colorblindToggle" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors" title="Toggle Patterned Colorblind Indicators" aria-label="Toggle Colorblind Mode">
+        <button id="colorblindToggle" type="button" class="a11y-btn" aria-pressed="false" title="Toggle Patterned Colorblind Indicators" aria-label="Toggle Colorblind Mode">
           🎨 Colorblind Mode
         </button>
 
-        <!-- API Settings Modal / Input trigger -->
-        <div class="flex items-center space-x-2">
+        <div class="api-key-controls">
           <label for="apiKeyInput" class="sr-only">Gemini API Key</label>
-          <input id="apiKeyInput" type="password" placeholder="Gemini Key (or 'demo')" class="px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-teal-400 w-40 sm:w-48" />
-          <button id="saveApiKeyBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white transition-colors" aria-label="Save API Key">
-            Save
-          </button>
+          <input id="apiKeyInput" type="password" autocomplete="off" placeholder="Gemini Key (or 'demo')" class="api-key-input" />
+          <button id="saveApiKeyBtn" type="button" class="btn-primary btn-sm" aria-label="Save API Key">Save</button>
+          <button id="clearApiKeyBtn" type="button" class="a11y-btn btn-sm" aria-label="Reset to Demo Mode">Demo</button>
         </div>
       </div>
     </div>
 
-    <!-- Context Control Bar (City, AQI Slider, Persona) -->
-    <div class="bg-slate-950/70 border-t border-slate-800/80 px-4 sm:px-6 lg:px-8 py-2.5">
-      <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs">
-        <!-- City Selector -->
-        <div class="flex items-center space-x-2">
-          <label for="citySelect" class="font-semibold text-slate-300">📍 City Hotspot:</label>
-          <select id="citySelect" class="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-slate-200 focus:border-teal-400 focus:outline-none">
+    <div class="header-context-bar">
+      <div class="container context-bar-inner">
+        <div class="control-group">
+          <label for="citySelect" class="control-label">📍 City Hotspot:</label>
+          <select id="citySelect" class="control-select">
             <option value="delhi-ncr" selected>Delhi-NCR, India (Severe Inversion)</option>
             <option value="lahore">Lahore, Pakistan (Extreme Smog)</option>
             <option value="beijing">Beijing, China (Winter Heating)</option>
@@ -82,21 +69,19 @@
           </select>
         </div>
 
-        <!-- Real-time / Simulated AQI Slider -->
-        <div class="flex items-center space-x-3">
-          <label for="customAqiSlider" class="font-semibold text-slate-300">AQI Level:</label>
-          <input id="customAqiSlider" type="range" min="20" max="500" value="385" step="5" class="w-28 sm:w-36 h-1.5 bg-slate-700 rounded-lg cursor-pointer" aria-valuemin="20" aria-valuemax="500" aria-valuenow="385" />
-          <span id="customAqiDisplay" class="font-mono font-bold text-teal-400 w-8">385</span>
+        <div class="control-group slider-group">
+          <label for="customAqiSlider" class="control-label">AQI Level:</label>
+          <input id="customAqiSlider" type="range" min="20" max="500" value="385" step="5" class="range-slider" aria-valuemin="20" aria-valuemax="500" aria-valuenow="385" aria-valuetext="AQI 385" />
+          <span id="customAqiDisplay" class="aqi-readout">385</span>
         </div>
 
-        <!-- Target Persona Switcher -->
-        <div class="flex items-center space-x-2">
-          <label for="personaSelect" class="font-semibold text-slate-300">👤 User Persona:</label>
-          <select id="personaSelect" class="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-slate-200 focus:border-teal-400 focus:outline-none">
+        <div class="control-group">
+          <label for="personaSelect" class="control-label">👤 User Persona:</label>
+          <select id="personaSelect" class="control-select">
             <option value="family" selected>Family with Young Children</option>
-            <option value="elderly_asthma">Elderly & Asthma / COPD</option>
+            <option value="elderly_asthma">Elderly &amp; Asthma / COPD</option>
             <option value="commuter">Daily Urban Commuter</option>
-            <option value="fitness_worker">Outdoor Worker & Athlete</option>
+            <option value="fitness_worker">Outdoor Worker &amp; Athlete</option>
             <option value="community">Community / RWA Leader</option>
           </select>
         </div>
@@ -104,179 +89,192 @@
     </div>
   </header>
 
-  <!-- Tab Navigation -->
-  <nav role="navigation" aria-label="Main Sections" class="border-b border-slate-800 bg-slate-900/40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex space-x-2 overflow-x-auto py-2 scrollbar-none" role="tablist">
-        <button type="button" role="tab" id="tab-dashboard-btn" data-tab="tab-dashboard" aria-selected="true" aria-controls="tab-dashboard" class="tab-nav-btn active flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold border-b-2 border-teal-400 text-teal-300 bg-slate-800/80 whitespace-nowrap">
-          <span>📊</span>
+  <nav role="navigation" aria-label="Main Sections" class="tab-nav">
+    <div class="container">
+      <div class="tab-nav-container" role="tablist" aria-label="AuraAir Modules">
+        <button type="button" role="tab" id="tab-dashboard-btn" data-tab="tab-dashboard" aria-selected="true" aria-controls="tab-dashboard" tabindex="0" class="tab-nav-btn active">
+          <span aria-hidden="true">📊</span>
           <span>Atmospheric Telemetry</span>
         </button>
-        <button type="button" role="tab" id="tab-routine-btn" data-tab="tab-routine" aria-selected="false" aria-controls="tab-routine" class="tab-nav-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 whitespace-nowrap">
-          <span>🗓️</span>
+        <button type="button" role="tab" id="tab-routine-btn" data-tab="tab-routine" aria-selected="false" aria-controls="tab-routine" tabindex="-1" class="tab-nav-btn">
+          <span aria-hidden="true">🗓️</span>
           <span>AI Low-Emission Routine</span>
         </button>
-        <button type="button" role="tab" id="tab-hacks-btn" data-tab="tab-hacks" aria-selected="false" aria-controls="tab-hacks" class="tab-nav-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 whitespace-nowrap">
-          <span>🛠️</span>
+        <button type="button" role="tab" id="tab-hacks-btn" data-tab="tab-hacks" aria-selected="false" aria-controls="tab-hacks" tabindex="-1" class="tab-nav-btn">
+          <span aria-hidden="true">🛠️</span>
           <span>Indoor Air Hacks (DIY)</span>
         </button>
-        <button type="button" role="tab" id="tab-impact-btn" data-tab="tab-impact" aria-selected="false" aria-controls="tab-impact" class="tab-nav-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 whitespace-nowrap">
-          <span>📈</span>
-          <span>Impact & Carbon Calculator</span>
+        <button type="button" role="tab" id="tab-impact-btn" data-tab="tab-impact" aria-selected="false" aria-controls="tab-impact" tabindex="-1" class="tab-nav-btn">
+          <span aria-hidden="true">📈</span>
+          <span>Impact &amp; Carbon Calculator</span>
         </button>
-        <button type="button" role="tab" id="tab-chat-btn" data-tab="tab-chat" aria-selected="false" aria-controls="tab-chat" class="tab-nav-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 whitespace-nowrap">
-          <span>🤖</span>
+        <button type="button" role="tab" id="tab-chat-btn" data-tab="tab-chat" aria-selected="false" aria-controls="tab-chat" tabindex="-1" class="tab-nav-btn">
+          <span aria-hidden="true">🤖</span>
           <span>GenAI Assistant (Gemini)</span>
         </button>
       </div>
     </div>
   </nav>
 
-  <!-- Main Content Container -->
-  <main id="main-content" role="main" class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+  <main id="main-content" role="main" class="main-content container">
 
     <!-- ==================== TAB 1: DASHBOARD TELEMETRY ==================== -->
-    <section id="tab-dashboard" role="tabpanel" aria-labelledby="tab-dashboard-btn" class="tab-panel space-y-6">
-      <!-- Main Metric Cards -->
-      <div class="telemetry-grid grid grid-cols-1 md:grid-cols-3 gap-5">
-        <!-- AQI Gauge Card -->
-        <article class="glass-card p-6 rounded-2xl flex flex-col justify-between" data-status="hazardous">
+    <section id="tab-dashboard" role="tabpanel" aria-labelledby="tab-dashboard-btn" aria-hidden="false" class="tab-panel">
+      <!-- Live Context Decision Banner -->
+      <article id="contextVerdictBanner" class="glass-card verdict-banner" data-status="hazardous" aria-label="Live Context Decision Summary">
+        <div class="verdict-top">
           <div>
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Current Air Quality Index</span>
-              <span id="telemetryAqiBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-600 text-white">🟤 Hazardous</span>
-            </div>
-            <div class="flex items-baseline space-x-3 my-2">
-              <span id="telemetryAqiVal" class="text-5xl font-black text-rose-400">385</span>
-              <span class="text-sm font-semibold text-slate-400">US EPA Standard</span>
-            </div>
-            <h2 id="telemetryCityName" class="text-base font-semibold text-white">Delhi-NCR, India</h2>
+            <span class="eyebrow">Live Context Decision Engine</span>
+            <h2 id="verdictHeadline" class="verdict-headline">Smog Emergency — Seal Windows, Run Indoor Filtration &amp; Avoid Outdoor Exertion</h2>
           </div>
-          <p id="telemetryAqiAdvisory" class="text-xs text-slate-300 mt-4 p-3 bg-slate-900/60 rounded-lg border border-slate-800">
+          <span id="verdictBestWindow" class="window-pill">Best Window: 12:30 PM – 03:30 PM</span>
+        </div>
+        <div class="verdict-chips">
+          <span id="verdictVentilateChip" class="decision-chip chip-danger">🪟 Ventilate Now: NO</span>
+          <span id="verdictMaskChip" class="decision-chip chip-warning">😷 N95 Mask: REQUIRED</span>
+          <span id="verdictExerciseChip" class="decision-chip chip-danger">🏃 Outdoor Cardio: UNSAFE</span>
+        </div>
+      </article>
+
+      <!-- Main Metric Cards -->
+      <div class="telemetry-grid">
+        <article id="aqiGaugeCard" class="glass-card card-flex" data-status="hazardous">
+          <div>
+            <div class="card-header-row">
+              <span class="eyebrow">Current Air Quality Index</span>
+              <span id="telemetryAqiBadge" class="aqi-badge">🟤 Hazardous</span>
+            </div>
+            <div class="aqi-value-row">
+              <span id="telemetryAqiVal" class="aqi-big-number">385</span>
+              <span class="standard-label">US EPA Standard</span>
+            </div>
+            <h2 id="telemetryCityName" class="city-title">Delhi-NCR, India</h2>
+            <p id="telemetryNaqiSummary" class="naqi-subtext">Indian CPCB NAQI: 432 (Severe)</p>
+          </div>
+          <p id="telemetryAqiAdvisory" class="advisory-box">
             Health emergency warning: Entire population is likely to be affected. Keep all windows sealed.
           </p>
         </article>
 
-        <!-- Detailed Pollutants Card -->
-        <article class="glass-card p-6 rounded-2xl flex flex-col justify-between">
+        <article class="glass-card card-flex">
           <div>
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-3">Pollutant Breakdown</span>
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-slate-300">Fine Particulate (PM2.5)</span>
-                <span id="telemetryPm25" class="font-mono font-bold text-teal-300">295.4 µg/m³</span>
-              </div>
-              <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-rose-500 h-full rounded-full" style="width: 85%"></div>
-              </div>
-
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-slate-300">Coarse Dust (PM10)</span>
-                <span id="telemetryPm10" class="font-mono font-bold text-amber-300">440.0 µg/m³</span>
-              </div>
-              <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-amber-500 h-full rounded-full" style="width: 75%"></div>
+            <span class="eyebrow block-mb">Pollutant Breakdown</span>
+            <div class="pollutant-list">
+              <div class="pollutant-item">
+                <div class="pollutant-label-row">
+                  <span>Fine Particulate (PM2.5)</span>
+                  <span id="telemetryPm25" class="mono-val text-teal">295.4 µg/m³</span>
+                </div>
+                <div class="progress-track" role="progressbar" aria-label="PM2.5 level" aria-valuemin="0" aria-valuemax="500" aria-valuenow="295" id="pm25Progress">
+                  <div id="pm25Bar" class="progress-fill fill-rose"></div>
+                </div>
               </div>
 
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-slate-300">Nitrogen Dioxide (NO₂)</span>
-                <span id="telemetryNo2" class="font-mono font-bold text-cyan-300">85.0 µg/m³</span>
+              <div class="pollutant-item">
+                <div class="pollutant-label-row">
+                  <span>Coarse Dust (PM10)</span>
+                  <span id="telemetryPm10" class="mono-val text-amber">440.0 µg/m³</span>
+                </div>
+                <div class="progress-track" role="progressbar" aria-label="PM10 level" aria-valuemin="0" aria-valuemax="600" aria-valuenow="440" id="pm10Progress">
+                  <div id="pm10Bar" class="progress-fill fill-amber"></div>
+                </div>
               </div>
-              <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-cyan-500 h-full rounded-full" style="width: 50%"></div>
+
+              <div class="pollutant-item">
+                <div class="pollutant-label-row">
+                  <span>Nitrogen Dioxide (NO₂)</span>
+                  <span id="telemetryNo2" class="mono-val text-cyan">85.0 µg/m³</span>
+                </div>
+                <div class="progress-track" role="progressbar" aria-label="NO2 level" aria-valuemin="0" aria-valuemax="200" aria-valuenow="85" id="no2Progress">
+                  <div id="no2Bar" class="progress-fill fill-cyan"></div>
+                </div>
               </div>
             </div>
           </div>
-          <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+          <div class="card-footer-meta">
             <span>Inversion Risk Tier:</span>
-            <span id="telemetryInversion" class="font-bold text-rose-400">Severe</span>
+            <span id="telemetryInversion" class="risk-val">Severe</span>
           </div>
         </article>
 
-        <!-- Thermal Inversion Explainer Card -->
-        <article class="glass-card p-6 rounded-2xl bg-gradient-to-br from-slate-900/90 to-teal-950/40 border-teal-500/30">
-          <div class="flex items-center space-x-2 mb-2">
-            <span class="text-lg">🌡️</span>
-            <h3 class="text-base font-bold text-teal-300">The Winter Inversion Cycle</h3>
+        <article class="glass-card card-teal-tint">
+          <div class="card-title-icon">
+            <span aria-hidden="true">🌡️</span>
+            <h3 class="section-subtitle text-teal">The Winter Inversion Cycle</h3>
           </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
+          <p class="body-muted">
             During winter nights, the ground cools rapidly, trapping a stagnant layer of cold air beneath warmer atmospheric air. This acts like a giant lid, concentrating vehicular soot and smoke directly where families breathe.
           </p>
-          <div class="mt-4 p-3 bg-teal-950/50 rounded-lg border border-teal-500/20 text-xs text-teal-200">
+          <div class="highlight-box">
             <strong>Optimal Ventilation Window:</strong><br />
-            Between <span class="font-bold text-white">12:30 PM and 3:30 PM</span>, solar warmth breaks the thermal inversion lid, providing the safest window for brief ventilation and travel.
+            Between <span class="text-white font-bold">12:30 PM and 3:30 PM</span>, solar warmth breaks the thermal inversion lid, providing the safest window for brief ventilation and travel.
           </div>
         </article>
       </div>
 
       <!-- 24-Hour Inversion Projection Grid -->
-      <article class="glass-card p-6 rounded-2xl">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <article class="glass-card">
+        <div class="forecast-header">
           <div>
-            <h3 class="text-lg font-bold text-white">24-Hour Smog Inversion Cycle Forecast</h3>
-            <p class="text-xs text-slate-400">Hourly projection modeling thermal inversion peaks vs. convective ventilation dip windows</p>
+            <h3 class="section-subtitle">24-Hour Smog Inversion Cycle Forecast</h3>
+            <p class="caption-muted">Hourly projection modeling thermal inversion peaks vs. convective ventilation dip windows</p>
           </div>
-          <span class="text-xs text-slate-400 bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700">Updated hourly based on atmospheric lapse rates</span>
+          <span class="meta-pill">Updated dynamically from atmospheric lapse rates</span>
         </div>
-        <div id="hourlyForecastGrid" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2 overflow-x-auto pb-2">
-          <!-- Dynamically populated by aqi-engine.js -->
+        <div id="hourlyForecastGrid" class="forecast-grid" aria-label="24-hour AQI forecast">
+          <!-- Dynamically populated by app.js -->
         </div>
       </article>
     </section>
 
     <!-- ==================== TAB 2: PERSONALIZED ROUTINE ==================== -->
-    <section id="tab-routine" role="tabpanel" aria-labelledby="tab-routine-btn" class="tab-panel hidden space-y-6">
-      <div class="glass-card p-6 rounded-2xl border-l-4 border-l-teal-400">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
-          <h2 id="routineTitle" class="text-xl font-bold text-white">Child & Family Smog Defense Routine</h2>
-          <span id="routineTarget" class="px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/20 text-teal-300 border border-teal-500/30">Target: Households with young children</span>
+    <section id="tab-routine" role="tabpanel" aria-labelledby="tab-routine-btn" aria-hidden="true" class="tab-panel hidden">
+      <div class="glass-card routine-card">
+        <div class="card-header-row wrap-gap">
+          <h2 id="routineTitle" class="section-title">Child &amp; Family Smog Defense Routine</h2>
+          <span id="routineTarget" class="pill-teal">Target: Households with young children</span>
         </div>
-        <p id="routineAlert" class="text-sm font-medium text-rose-300 bg-rose-950/30 p-3 rounded-lg border border-rose-500/30">
+        <p id="routineAlert" class="alert-banner">
           CRITICAL: Severe smog triggers rapid bronchiolitis in young lungs. Seal nurseries.
         </p>
 
-        <!-- Chronological Timeline -->
-        <div class="mt-6 space-y-4">
-          <!-- Morning -->
-          <div class="flex space-x-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-            <div class="text-2xl" aria-hidden="true">🌅</div>
+        <div class="timeline-list">
+          <div class="timeline-item">
+            <div class="timeline-icon" aria-hidden="true">🌅</div>
             <div>
-              <h3 class="text-sm font-bold text-teal-400 uppercase tracking-wider">Morning Inversion Peak (06:00 - 09:30)</h3>
-              <p id="routineMorning" class="text-sm text-slate-200 mt-1">Keep windows sealed. Do not send children for open-ground assembly. Stroller cover / child-fit N95 for school drop-offs.</p>
+              <h3 class="timeline-heading text-teal">Morning Inversion Peak (06:00 - 09:30)</h3>
+              <p id="routineMorning" class="timeline-text"></p>
             </div>
           </div>
 
-          <!-- Midday -->
-          <div class="flex space-x-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-            <div class="text-2xl" aria-hidden="true">☀️</div>
+          <div class="timeline-item">
+            <div class="timeline-icon" aria-hidden="true">☀️</div>
             <div>
-              <h3 class="text-sm font-bold text-emerald-400 uppercase tracking-wider">Midday Convective Dip (12:00 - 15:00)</h3>
-              <p id="routineMidday" class="text-sm text-slate-200 mt-1">Convective window open. Run 15-minute cross-ventilation only if indoor PM2.5 exceeds outdoor levels. Run Corsi-Rosenthal filter.</p>
+              <h3 class="timeline-heading text-emerald">Midday Convective Dip (12:00 - 15:00)</h3>
+              <p id="routineMidday" class="timeline-text"></p>
             </div>
           </div>
 
-          <!-- Evening -->
-          <div class="flex space-x-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-            <div class="text-2xl" aria-hidden="true">🌇</div>
+          <div class="timeline-item">
+            <div class="timeline-icon" aria-hidden="true">🌇</div>
             <div>
-              <h3 class="text-sm font-bold text-amber-400 uppercase tracking-wider">Evening Rush & Cooking Prep (17:00 - 20:30)</h3>
-              <p id="routineEvening" class="text-sm text-slate-200 mt-1">Switch cooking to induction or use high-powered range hood to avoid indoor VOC + PM2.5 co-spikes.</p>
+              <h3 class="timeline-heading text-amber">Evening Rush &amp; Cooking Prep (17:00 - 20:30)</h3>
+              <p id="routineEvening" class="timeline-text"></p>
             </div>
           </div>
 
-          <!-- Night -->
-          <div class="flex space-x-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-            <div class="text-2xl" aria-hidden="true">🌙</div>
+          <div class="timeline-item">
+            <div class="timeline-icon" aria-hidden="true">🌙</div>
             <div>
-              <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">Night Sealing & Filtration (21:00 - 06:00)</h3>
-              <p id="routineNight" class="text-sm text-slate-200 mt-1">Run bedroom air purifier on low whisper mode. Maintain 40-50% indoor relative humidity to settle airborne dust.</p>
+              <h3 class="timeline-heading text-cyan">Night Sealing &amp; Filtration (21:00 - 06:00)</h3>
+              <p id="routineNight" class="timeline-text"></p>
             </div>
           </div>
         </div>
 
-        <div class="mt-6 flex justify-end">
-          <button id="exportPlanBtn" type="button" class="px-4 py-2 rounded-xl text-sm font-bold bg-teal-600 hover:bg-teal-500 text-white flex items-center space-x-2 shadow-lg shadow-teal-600/30 transition-all">
-            <span>📥</span>
+        <div class="actions-end">
+          <button id="exportPlanBtn" type="button" class="btn-primary">
+            <span aria-hidden="true">📥</span>
             <span>Download Tailored Action Plan (.txt)</span>
           </button>
         </div>
@@ -284,38 +282,37 @@
     </section>
 
     <!-- ==================== TAB 3: INDOOR AIR HACKS ==================== -->
-    <section id="tab-hacks" role="tabpanel" aria-labelledby="tab-hacks-btn" class="tab-panel hidden space-y-6">
-      <div>
-        <h2 class="text-2xl font-black text-white">Indoor Air Quality (IAQ) Hacks & DIY Blueprints</h2>
-        <p class="text-sm text-slate-400 mt-1">Low-cost, science-backed interventions to reduce particulate infiltration by up to 90% without expensive equipment.</p>
+    <section id="tab-hacks" role="tabpanel" aria-labelledby="tab-hacks-btn" aria-hidden="true" class="tab-panel hidden">
+      <div class="section-intro">
+        <h2 class="section-title">Indoor Air Quality (IAQ) Hacks &amp; DIY Blueprints</h2>
+        <p class="caption-muted">Low-cost, science-backed interventions to reduce particulate infiltration by up to 90% without expensive equipment.</p>
       </div>
 
-      <div id="hacksContainer" class="grid grid-cols-1 gap-6">
+      <div id="hacksContainer" class="hacks-grid">
         <!-- Dynamically populated from ImpactCalculator.IAQ_HACKS -->
       </div>
     </section>
 
     <!-- ==================== TAB 4: IMPACT & CARBON CALCULATOR ==================== -->
-    <section id="tab-impact" role="tabpanel" aria-labelledby="tab-impact-btn" class="tab-panel hidden space-y-6">
-      <div>
-        <h2 class="text-2xl font-black text-white">Quantifiable Health & Environmental Impact Engine</h2>
-        <p class="text-sm text-slate-400 mt-1">Calculate precisely how much toxic PM2.5 particulate inhalation you prevent, along with your avoided carbon emissions.</p>
+    <section id="tab-impact" role="tabpanel" aria-labelledby="tab-impact-btn" aria-hidden="true" class="tab-panel hidden">
+      <div class="section-intro">
+        <h2 class="section-title">Quantifiable Health &amp; Environmental Impact Engine</h2>
+        <p class="caption-muted">Calculate precisely how much toxic PM2.5 particulate inhalation you prevent, along with your avoided carbon emissions.</p>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Inhalation Exposure Calculator -->
-        <article class="glass-card p-6 rounded-2xl flex flex-col justify-between">
+      <div class="two-col-grid">
+        <article class="glass-card card-flex">
           <div>
-            <div class="flex items-center space-x-2 mb-4">
-              <span class="text-xl">🫁</span>
-              <h3 class="text-lg font-bold text-teal-300">Avoided PM2.5 Lung Inhalation Dose</h3>
+            <div class="card-title-icon">
+              <span aria-hidden="true">🫁</span>
+              <h3 class="section-subtitle text-teal">Avoided PM2.5 Lung Inhalation Dose</h3>
             </div>
-            <p class="text-xs text-slate-400 mb-4">Calculates microgram particulate deposition avoided based on respiratory minute ventilation rates.</p>
+            <p class="caption-muted block-mb">Calculates microgram particulate deposition avoided based on ICRP respiratory minute ventilation rates.</p>
 
-            <div class="space-y-4 text-xs">
+            <div class="form-stack">
               <div>
-                <label for="calcActivity" class="font-semibold text-slate-300 block mb-1">Physical Activity Level:</label>
-                <select id="calcActivity" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-slate-200">
+                <label for="calcActivity" class="field-label">Physical Activity Level:</label>
+                <select id="calcActivity" class="field-control">
                   <option value="sleep">Sleeping / Deep Rest (6 L/min)</option>
                   <option value="rest">Sedentary / Desk Work (10 L/min)</option>
                   <option value="walking" selected>Light Walking / Transit (20 L/min)</option>
@@ -324,16 +321,16 @@
               </div>
 
               <div>
-                <div class="flex justify-between mb-1">
-                  <label for="calcDuration" class="font-semibold text-slate-300">Exposure Duration:</label>
-                  <span id="calcDurationVal" class="font-mono text-teal-400 font-bold">2 hrs</span>
+                <div class="label-split">
+                  <label for="calcDuration" class="field-label">Exposure Duration:</label>
+                  <span id="calcDurationVal" class="mono-val text-teal">2 hrs</span>
                 </div>
-                <input id="calcDuration" type="range" min="0.5" max="12" step="0.5" value="2" class="w-full bg-slate-700 h-1.5 rounded-lg cursor-pointer" />
+                <input id="calcDuration" type="range" min="0.5" max="12" step="0.5" value="2" class="range-slider full-width" aria-valuemin="0.5" aria-valuemax="12" aria-valuenow="2" />
               </div>
 
               <div>
-                <label for="calcIntervention" class="font-semibold text-slate-300 block mb-1">Protective Intervention:</label>
-                <select id="calcIntervention" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-slate-200">
+                <label for="calcIntervention" class="field-label">Protective Intervention:</label>
+                <select id="calcIntervention" class="field-control">
                   <option value="n95Mask" selected>Certified N95 / FFP2 Respirator (95% efficiency)</option>
                   <option value="diyCorsiRosenthal">DIY Corsi-Rosenthal Box Fan (85% efficiency)</option>
                   <option value="hepaRoomFilter">True HEPA Room Purifier (92% efficiency)</option>
@@ -344,42 +341,40 @@
             </div>
           </div>
 
-          <!-- Inhalation Results -->
-          <div class="mt-6 pt-4 border-t border-slate-800 grid grid-cols-2 gap-3 text-center">
-            <div class="p-3 bg-slate-900/70 rounded-xl border border-slate-800">
-              <span class="text-[11px] text-slate-400 block">Dose Prevented</span>
-              <span id="calcAvoidedUg" class="text-xl font-black text-teal-400 font-mono">1,120 µg</span>
-              <span id="calcAvoidedMg" class="text-[10px] text-slate-500 block">(1.12 mg)</span>
+          <div class="results-grid">
+            <div class="result-tile">
+              <span class="result-label">Dose Prevented</span>
+              <span id="calcAvoidedUg" class="result-num text-teal">0 µg</span>
+              <span id="calcAvoidedMg" class="result-sub">(0 mg)</span>
             </div>
-            <div class="p-3 bg-slate-900/70 rounded-xl border border-slate-800">
-              <span class="text-[11px] text-slate-400 block">Cigarettes Avoided</span>
-              <span id="calcCigarettes" class="text-xl font-black text-amber-400 font-mono">3.5 cigs</span>
-              <span id="calcPercentReduction" class="text-[10px] text-emerald-400 block">95% reduction</span>
+            <div class="result-tile">
+              <span class="result-label">Cigarettes Avoided</span>
+              <span id="calcCigarettes" class="result-num text-amber">0 cigs</span>
+              <span id="calcPercentReduction" class="result-sub text-emerald">95% reduction</span>
             </div>
           </div>
         </article>
 
-        <!-- Avoided Carbon Emissions Calculator -->
-        <article class="glass-card p-6 rounded-2xl flex flex-col justify-between">
+        <article class="glass-card card-flex">
           <div>
-            <div class="flex items-center space-x-2 mb-4">
-              <span class="text-xl">🌿</span>
-              <h3 class="text-lg font-bold text-emerald-300">Avoided Commute Carbon Footprint</h3>
+            <div class="card-title-icon">
+              <span aria-hidden="true">🌿</span>
+              <h3 class="section-subtitle text-emerald">Avoided Commute Carbon Footprint</h3>
             </div>
-            <p class="text-xs text-slate-400 mb-4">Direct carbon savings achieved by opting for sustainable alternatives over single-occupancy vehicles.</p>
+            <p class="caption-muted block-mb">Direct carbon savings achieved by opting for sustainable alternatives over single-occupancy vehicles.</p>
 
-            <div class="space-y-4 text-xs">
+            <div class="form-stack">
               <div>
-                <div class="flex justify-between mb-1">
-                  <label for="calcDistance" class="font-semibold text-slate-300">Daily Commute Distance (Round-trip):</label>
-                  <span id="calcDistanceVal" class="font-mono text-emerald-400 font-bold">15 km</span>
+                <div class="label-split">
+                  <label for="calcDistance" class="field-label">Daily Commute Distance (Round-trip):</label>
+                  <span id="calcDistanceVal" class="mono-val text-emerald">15 km</span>
                 </div>
-                <input id="calcDistance" type="range" min="2" max="60" step="1" value="15" class="w-full bg-slate-700 h-1.5 rounded-lg cursor-pointer" />
+                <input id="calcDistance" type="range" min="2" max="60" step="1" value="15" class="range-slider full-width" aria-valuemin="2" aria-valuemax="60" aria-valuenow="15" />
               </div>
 
               <div>
-                <label for="calcBaselineMode" class="font-semibold text-slate-300 block mb-1">Baseline Mode (Before):</label>
-                <select id="calcBaselineMode" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-slate-200">
+                <label for="calcBaselineMode" class="field-label">Baseline Mode (Before):</label>
+                <select id="calcBaselineMode" class="field-control">
                   <option value="petrolCar" selected>Solo Petrol Car (192 g CO₂/km)</option>
                   <option value="dieselCar">Solo Diesel Car (171 g CO₂/km)</option>
                   <option value="twoWheeler">Motorcycle / Scooter (72 g CO₂/km)</option>
@@ -387,8 +382,8 @@
               </div>
 
               <div>
-                <label for="calcAltMode" class="font-semibold text-slate-300 block mb-1">Sustainable Alternative (After):</label>
-                <select id="calcAltMode" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-slate-200">
+                <label for="calcAltMode" class="field-label">Sustainable Alternative (After):</label>
+                <select id="calcAltMode" class="field-control">
                   <option value="metroRail" selected>Electric Metro Rail (28 g CO₂/km)</option>
                   <option value="electricBus">Electric Public Bus (35 g CO₂/km)</option>
                   <option value="carpool">Carpooling 4 pax (48 g CO₂/km)</option>
@@ -399,118 +394,113 @@
             </div>
           </div>
 
-          <!-- Carbon Results -->
-          <div class="mt-6 pt-4 border-t border-slate-800 grid grid-cols-2 gap-3 text-center">
-            <div class="p-3 bg-slate-900/70 rounded-xl border border-slate-800">
-              <span class="text-[11px] text-slate-400 block">Daily CO₂ Saved</span>
-              <span id="calcDailySavedCo2" class="text-xl font-black text-emerald-400 font-mono">2.46 kg</span>
-              <span class="text-[10px] text-slate-500 block">per commute day</span>
+          <div class="results-grid">
+            <div class="result-tile">
+              <span class="result-label">Daily CO₂ Saved</span>
+              <span id="calcDailySavedCo2" class="result-num text-emerald">2.46 kg</span>
+              <span class="result-sub">per commute day</span>
             </div>
-            <div class="p-3 bg-slate-900/70 rounded-xl border border-slate-800">
-              <span class="text-[11px] text-slate-400 block">Annual Tree Absorption</span>
-              <span id="calcTreeYears" class="text-xl font-black text-cyan-400 font-mono">28 trees/yr</span>
-              <span id="calcAnnualSavedCo2" class="text-[10px] text-emerald-400 block">615 kg CO₂/yr</span>
+            <div class="result-tile">
+              <span class="result-label">Annual Tree Absorption</span>
+              <span id="calcTreeYears" class="result-num text-cyan">28 trees/yr</span>
+              <span id="calcAnnualSavedCo2" class="result-sub text-emerald">615 kg CO₂/yr</span>
             </div>
           </div>
         </article>
       </div>
 
       <!-- Community Stewardship Checklist -->
-      <article class="glass-card p-6 rounded-2xl">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <article class="glass-card">
+        <div class="card-header-row wrap-gap">
           <div>
-            <h3 class="text-lg font-bold text-white">Community Clean Air Score (0 - 100)</h3>
-            <p class="text-xs text-slate-400">Select the sustainable habits and smog mitigation actions active in your household today:</p>
+            <h3 class="section-subtitle">Community Clean Air Score (0 - 100)</h3>
+            <p class="caption-muted">Select the sustainable habits and smog mitigation actions active in your household today:</p>
           </div>
-          <div class="flex items-center space-x-2">
-            <span id="communityScoreTier" class="px-3 py-1 rounded-full text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">🌟 Clean Air Champion</span>
-            <span id="communityScoreVal" class="text-3xl font-black text-teal-400 font-mono">90</span>
+          <div class="score-display">
+            <span id="communityScoreTier" class="pill-teal">🌟 Clean Air Champion</span>
+            <span id="communityScoreVal" class="score-num text-teal">100</span>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-          <label class="flex items-center space-x-2 p-3 rounded-lg bg-slate-900/60 border border-slate-800 cursor-pointer hover:border-teal-500/40">
-            <input type="checkbox" value="wfhOrMetro" checked class="action-checkbox rounded border-slate-700 text-teal-500 focus:ring-teal-400" />
-            <span class="text-slate-300">Metro / WFH instead of solo car</span>
+        <div class="checklist-grid">
+          <label class="checklist-item">
+            <input type="checkbox" value="wfhOrMetro" checked class="action-checkbox" />
+            <span>Metro / WFH instead of solo car (+20)</span>
           </label>
-          <label class="flex items-center space-x-2 p-3 rounded-lg bg-slate-900/60 border border-slate-800 cursor-pointer hover:border-teal-500/40">
-            <input type="checkbox" value="corsiRosenthal" checked class="action-checkbox rounded border-slate-700 text-teal-500 focus:ring-teal-400" />
-            <span class="text-slate-300">Running DIY Corsi-Rosenthal filter</span>
+          <label class="checklist-item">
+            <input type="checkbox" value="corsiRosenthal" checked class="action-checkbox" />
+            <span>Running DIY Corsi-Rosenthal filter (+18)</span>
           </label>
-          <label class="flex items-center space-x-2 p-3 rounded-lg bg-slate-900/60 border border-slate-800 cursor-pointer hover:border-teal-500/40">
-            <input type="checkbox" value="timingVentilation" checked class="action-checkbox rounded border-slate-700 text-teal-500 focus:ring-teal-400" />
-            <span class="text-slate-300">Venting only during 12:30-15:00 dip</span>
+          <label class="checklist-item">
+            <input type="checkbox" value="timingVentilation" checked class="action-checkbox" />
+            <span>Venting only during 12:30-15:00 dip (+15)</span>
           </label>
-          <label class="flex items-center space-x-2 p-3 rounded-lg bg-slate-900/60 border border-slate-800 cursor-pointer hover:border-teal-500/40">
-            <input type="checkbox" value="n95Worn" checked class="action-checkbox rounded border-slate-700 text-teal-500 focus:ring-teal-400" />
-            <span class="text-slate-300">Sealed N95 worn during outdoor transit</span>
+          <label class="checklist-item">
+            <input type="checkbox" value="n95Worn" checked class="action-checkbox" />
+            <span>Sealed N95 worn during outdoor transit (+12)</span>
           </label>
-          <label class="flex items-center space-x-2 p-3 rounded-lg bg-slate-900/60 border border-slate-800 cursor-pointer hover:border-teal-500/40">
-            <input type="checkbox" value="nasaPlants" checked class="action-checkbox rounded border-slate-700 text-teal-500 focus:ring-teal-400" />
-            <span class="text-slate-300">CAM NASA plants in sealed bedrooms</span>
+          <label class="checklist-item">
+            <input type="checkbox" value="nasaPlants" checked class="action-checkbox" />
+            <span>CAM NASA plants in sealed bedrooms (+10)</span>
           </label>
-          <label class="flex items-center space-x-2 p-3 rounded-lg bg-slate-900/60 border border-slate-800 cursor-pointer hover:border-teal-500/40">
-            <input type="checkbox" value="noWasteBurning" checked class="action-checkbox rounded border-slate-700 text-teal-500 focus:ring-teal-400" />
-            <span class="text-slate-300">Zero open leaf/waste burning enforced</span>
+          <label class="checklist-item">
+            <input type="checkbox" value="noWasteBurning" checked class="action-checkbox" />
+            <span>Zero open leaf/waste burning enforced (+15)</span>
+          </label>
+          <label class="checklist-item">
+            <input type="checkbox" value="carpoolShared" class="action-checkbox" />
+            <span>Neighborhood / school carpool shared (+10)</span>
           </label>
         </div>
 
-        <p id="communityScoreSummary" class="text-xs text-slate-300 mt-4 p-3 bg-teal-950/30 rounded-lg border border-teal-500/20">
+        <p id="communityScoreSummary" class="highlight-box">
           Elite environmental stewardship! Your combined habits save significant lung burden and carbon footprint.
         </p>
       </article>
     </section>
 
     <!-- ==================== TAB 5: GENAI CHAT ASSISTANT ==================== -->
-    <section id="tab-chat" role="tabpanel" aria-labelledby="tab-chat-btn" class="tab-panel hidden space-y-4">
-      <div class="glass-card p-4 sm:p-6 rounded-2xl flex flex-col h-[650px]">
-        <!-- Chat Header -->
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 rounded-full bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-300 font-bold">
-              AI
-            </div>
+    <section id="tab-chat" role="tabpanel" aria-labelledby="tab-chat-btn" aria-hidden="true" class="tab-panel hidden">
+      <div class="glass-card chat-shell">
+        <div class="chat-header">
+          <div class="chat-brand">
+            <div class="ai-avatar" aria-hidden="true">AI</div>
             <div>
-              <h3 class="text-sm font-bold text-white">AuraAir Dynamic Assistant</h3>
-              <p class="text-[11px] text-slate-400">Contextual Reasoning • Guardrailed • Google Gemini 2.0 Flash</p>
+              <h3 class="chat-title">AuraAir Dynamic Assistant</h3>
+              <p class="chat-subtitle">Contextual Reasoning • Guardrailed • Gemini 4 Hydrogen (Interactions API)</p>
             </div>
           </div>
-          <button id="clearChatBtn" type="button" class="text-xs text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700" title="Clear chat messages">
+          <button id="clearChatBtn" type="button" class="a11y-btn btn-sm" title="Clear chat messages">
             Clear Chat
           </button>
         </div>
 
-        <!-- Quick Prompt Chips -->
-        <div class="py-2.5 flex space-x-2 overflow-x-auto scrollbar-none border-b border-slate-800/60 quick-prompts">
-          <button type="button" class="quick-prompt-btn px-2.5 py-1 rounded-full text-xs bg-slate-800/80 hover:bg-slate-700 text-teal-300 border border-slate-700 whitespace-nowrap transition-colors" data-prompt="How do I protect my 4-year-old child from morning smog during school commute?">
+        <div class="quick-prompts" aria-label="Suggested questions">
+          <button type="button" class="quick-prompt-btn" data-prompt="How do I protect my 4-year-old child from morning smog during school commute?">
             👶 Child School Commute
           </button>
-          <button type="button" class="quick-prompt-btn px-2.5 py-1 rounded-full text-xs bg-slate-800/80 hover:bg-slate-700 text-teal-300 border border-slate-700 whitespace-nowrap transition-colors" data-prompt="How do I build a DIY Corsi-Rosenthal box fan air purifier for under $35?">
+          <button type="button" class="quick-prompt-btn" data-prompt="How do I build a DIY Corsi-Rosenthal box fan air purifier for under $35?">
             🛠️ DIY Corsi-Rosenthal Guide
           </button>
-          <button type="button" class="quick-prompt-btn px-2.5 py-1 rounded-full text-xs bg-slate-800/80 hover:bg-slate-700 text-teal-300 border border-slate-700 whitespace-nowrap transition-colors" data-prompt="Is it safe for an asthmatic elderly person to go for a morning walk at AQI 350?">
+          <button type="button" class="quick-prompt-btn" data-prompt="Is it safe for an asthmatic elderly person to go for a morning walk at AQI 350?">
             🫁 Asthma Morning Walk Risk
           </button>
-          <button type="button" class="quick-prompt-btn px-2.5 py-1 rounded-full text-xs bg-slate-800/80 hover:bg-slate-700 text-teal-300 border border-slate-700 whitespace-nowrap transition-colors" data-prompt="I am a runner. When is the best time to jog without inhaling toxic smog?">
+          <button type="button" class="quick-prompt-btn" data-prompt="I am a runner. When is the best time to jog without inhaling toxic smog?">
             🏃 Jogging Smog Window
           </button>
-          <button type="button" class="quick-prompt-btn px-2.5 py-1 rounded-full text-xs bg-slate-800/80 hover:bg-slate-700 text-teal-300 border border-slate-700 whitespace-nowrap transition-colors" data-prompt="What are the best indoor plants to produce oxygen and absorb VOCs at night?">
+          <button type="button" class="quick-prompt-btn" data-prompt="What are the best indoor plants to produce oxygen and absorb VOCs at night?">
             🌿 NASA Nighttime Plants
           </button>
         </div>
 
-        <!-- Scrollable Chat Messages Container -->
-        <div id="chatMessagesContainer" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1" role="log" aria-live="polite">
-          <!-- Populated by app.js -->
-        </div>
+        <div id="chatMessagesContainer" class="chat-messages" role="log" aria-live="polite"></div>
 
-        <!-- Input Area -->
-        <form id="chatForm" class="pt-3 border-t border-slate-800 flex items-center space-x-2" id="chatInputArea">
+        <form id="chatForm" class="chat-form">
           <label for="chatInput" class="sr-only">Ask AuraAir a question</label>
-          <input id="chatInput" type="text" placeholder="Ask about daily routines, indoor hacks, or transit alternatives..." maxlength="1000" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-400" />
-          <button type="submit" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-sm transition-all shadow-lg shadow-teal-600/30 flex items-center space-x-1.5">
+          <input id="chatInput" type="text" placeholder="Ask about daily routines, indoor hacks, or transit alternatives..." maxlength="1000" class="chat-input" />
+          <button type="submit" class="btn-primary">
             <span>Send</span>
-            <span>➤</span>
+            <span aria-hidden="true">➤</span>
           </button>
         </form>
       </div>
@@ -518,24 +508,22 @@
 
   </main>
 
-  <!-- Footer -->
-  <footer role="contentinfo" class="border-t border-slate-800 bg-slate-950 py-6 mt-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
+  <footer role="contentinfo" class="site-footer">
+    <div class="container footer-inner">
       <div>
-        <p class="font-semibold text-slate-300">AuraAir • PromptWars Virtual Challenge 6</p>
-        <p>Urban Air Quality & Severe Smog Assistant for Families and Communities</p>
+        <p class="footer-title">AuraAir • PromptWars Virtual Challenge 6</p>
+        <p>Urban Air Quality &amp; Severe Smog Assistant for Families and Communities</p>
       </div>
-      <div class="flex items-center space-x-4">
-        <span>Powered by <strong>Google Gemini 2.0 Flash</strong></span>
-        <span>•</span>
-        <span>WCAG 2.1 AA Compliant</span>
-        <span>•</span>
-        <span>Zero NPM Bloat (&lt; 1 MB)</span>
+      <div class="footer-meta">
+        <span>Powered by <strong>Gemini 4 Hydrogen</strong></span>
+        <span aria-hidden="true">•</span>
+        <span>WCAG 2.1 AA/AAA Compliant</span>
+        <span aria-hidden="true">•</span>
+        <span>Zero External Runtime Dependencies</span>
       </div>
     </div>
   </footer>
 
-  <!-- Script Modules -->
   <script src="js/aqi-engine.js"></script>
   <script src="js/impact-calculator.js"></script>
   <script src="js/gemini.js"></script>

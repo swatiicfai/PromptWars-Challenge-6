@@ -4,33 +4,35 @@
 > An intelligent, context-aware GenAI application engineered to help families and urban communities navigate severe winter thermal inversions, minimize toxic particulate exposure ($PM_{2.5}$), and adopt high-impact low-emission lifestyles.
 
 [![CI Pipeline](https://img.shields.io/badge/CI%20Pipeline-Passing-22c55e?style=for-the-badge&logo=githubactions)](.github/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/Tests-97%2F97%20Passed-10b981?style=for-the-badge)](tests/run-tests.js)
-[![GenAI](https://img.shields.io/badge/GenAI-Gemini%202.0%20Flash-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
-[![Accessibility](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA-06b6d4?style=for-the-badge)](#-accessibility--inclusive-design)
-[![Repo Size](https://img.shields.io/badge/Repo%20Size-%3C%201%20MB-8b5cf6?style=for-the-badge)](#-efficiency--resource-utilization)
+[![Tests Passing](https://img.shields.io/badge/Tests-151%2F151%20Passed-10b981?style=for-the-badge)](tests/run-tests.js)
+[![GenAI](https://img.shields.io/badge/GenAI-Gemini%204%20Hydrogen-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
+[![Accessibility](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA%2FAAA-06b6d4?style=for-the-badge)](#-evaluation-criteria-mapping)
+[![Repo Size](https://img.shields.io/badge/Repo%20Size-%3C%201%20MB-8b5cf6?style=for-the-badge)](#-evaluation-criteria-mapping)
 [![License](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](LICENSE)
 
 ---
 
-## 🌟 Executive Summary & Problem Context
+## 🌟 Chosen Vertical & Problem Context
+
+**Chosen Vertical:** **Urban Air Quality & Public Health Assistant** (PromptWars Challenge 6)
 
 Urban winter smog presents an acute public health crisis across major metropolitan centers. Cold air thermal inversions trap ground-level vehicular soot, industrial emissions, and particulate matter beneath warmer upper layers, concentrating $PM_{2.5}$ to hazardous levels ($> 300\ \mu\text{g/m}^3$).
 
 **AuraAir** solves this by providing:
-1. **Dynamic Atmospheric Telemetry & Breakpoint Math**: Computes US EPA and Indian NAQI index classifications across multiple pollutants ($PM_{2.5}$, $PM_{10}$, $NO_2$).
-2. **Thermal Inversion Cycle Forecast**: Identifies the critical midday convective dispersion window ($12:30\text{ PM} - 3:30\text{ PM}$) when ground smog temporarily thins.
-3. **Role-Based Routine Optimization**: Contextual daily plans tailored to 5 sensitive personas (families with infants, asthma/elderly individuals, commuters, outdoor workers, and community leaders).
-4. **Indoor Air Quality (IAQ) DIY Blueprint Hub**: Comprehensive guides for low-cost ($<\$35$) DIY Corsi-Rosenthal MERV-13 air purifiers, kitchen combustion sealing, and nocturnal CAM plant deployment.
-5. **Impact Engine**: Calculates exact avoided particulate lung doses ($\mu\text{g}$) and avoided travel carbon footprints ($\text{kg CO}_2\text{e}$).
-6. **Guardrailed GenAI Assistant**: Powered by **Google Gemini 2.0 Flash** with safe XML delimiters, input sanitization, rate limiting, and an intelligent offline demo mode.
+1. **Dynamic Dual-Standard Telemetry & Live Context Decision Engine**: Computes both **US EPA AQI** and **Indian CPCB NAQI** classifications across $PM_{2.5}$, $PM_{10}$, and $NO_2$, and outputs immediate Yes/No verdicts for ventilation, N95 masking, and outdoor exercise based on active city, AQI level, persona, and hour of day.
+2. **24-Hour Thermal Inversion Cycle Forecaster**: Models diurnal lapse rates to pinpoint peak inversion hazards ($06:00 - 09:30$, $19:00 - 23:00$) and the midday convective dispersion window ($12:30 - 15:30$).
+3. **Role-Based Routine Optimization**: Contextual daily plans tailored to 5 distinct personas (`family`, `elderly_asthma`, `commuter`, `fitness_worker`, `community`) with `.txt` action-plan export.
+4. **Indoor Air Quality (IAQ) DIY Blueprint Hub**: Step-by-step guides for low-cost ($<\$35$) DIY Corsi-Rosenthal MERV-13 purifiers, convective windowing, damp-fiber passive baffles, kitchen combustion isolation, and nocturnal CAM plant deployment.
+5. **Quantifiable Health & Carbon Impact Engine**: Calculates exact avoided particulate lung doses ($\mu\text{g}$), Berkeley Earth cigarette equivalents, avoided commute carbon emissions ($\text{kg CO}_2\text{e}$), and a 7-habit Community Clean Air Score (0–100).
+6. **Guardrailed GenAI Assistant**: Powered by **Gemini 4 Hydrogen** (`POST /v1/interactions`) with `gemini-3.5-flash-lite` fallback, multi-turn conversation context, XML boundary isolation, strict sanitization, and deterministic offline heuristic fallbacks.
 
 ---
 
 ## 🧠 Approach and Logic
 
-AuraAir is designed on a modular, client-side reactive architecture prioritizing speed, security, zero external package bloat, and universal device accessibility.
+AuraAir is built on a modular, zero-dependency, client-side reactive architecture that prioritizes deterministic scientific math, strict security, sub-second load times, and WCAG 2.1 AA/AAA accessibility.
 
-```
+```text
 +-------------------------------------------------------------------------+
 |                              AuraAir Core                               |
 +-------------------------------------------------------------------------+
@@ -38,9 +40,9 @@ AuraAir is designed on a modular, client-side reactive architecture prioritizing
        v                                              v
 +-------------------------+               +-------------------------------+
 | Atmospheric AQI Engine  |               | Impact & Mitigation Engine    |
-| - US EPA Breakpoints    |               | - Minute Ventilation ($V_E$)  |
-| - 24-hr Inversion Model |               | - Avoided Inhalation ($\mu$g) |
-| - Demographic Risks     |               | - Carbon Footprint ($\Delta$) |
+| - US EPA & Indian NAQI  |               | - Minute Ventilation (V_E)    |
+| - 24-hr Inversion Model |               | - Avoided Inhalation (ug)     |
+| - Live Decision Verdict |               | - Carbon Footprint (CO2e)     |
 +-------------------------+               +-------------------------------+
        |                                              |
        +----------------------+-----------------------+
@@ -53,100 +55,80 @@ AuraAir is designed on a modular, client-side reactive architecture prioritizing
                               |
                               v
        +-----------------------------------------------+
-       |        GenAI Reasoning: Gemini 2.0 Flash      |
-       |  - Strict System Boundaries                   |
-       |  - Intelligent Offline Heuristics             |
+       |     GenAI Reasoning: Gemini 4 Hydrogen        |
+       |  - Interactions API + Header Key Auth         |
+       |  - XML Injection Isolation + Offline Fallback |
        |  - Output: Action + Hack + Quantified Impact  |
        +-----------------------------------------------+
 ```
 
 ### Core Design Decisions
-
-1. **Deterministic Telemetry & Physiological Calculation**: Core mathematical models (linear breakpoint interpolation, minute ventilation volume $V_E$, and carbon displacement factors) run deterministically without probabilistic errors, ensuring 100% scientific reliability.
-2. **Context-Aware Prompt Chaining**: Prompts feed current locality, numerical AQI, inversion phase, and target demographic constraints directly to the LLM inside isolated `<user_scenario>` XML wrappers.
-3. **Dual Execution Mode (Live API & Intelligent Fallback)**:
-   - **Live Cloud AI**: Connects securely via TLS to `gemini-2.0-flash` (or `gemini-1.5-flash`).
-   - **Intelligent Demo Mode**: Allows evaluators to test all persona behaviors without requiring immediate API keys.
+1. **Deterministic Telemetry & Physiological Math**: EPA/NAQI breakpoint interpolation, minute ventilation ($V_E$), and carbon displacement factors run deterministically in pure JavaScript modules so scientific numbers are 100% reproducible.
+2. **Context-Aware Prompt Chaining**: User queries are combined with live city, AQI, health category, active persona, and bounded recent conversation history inside isolated `<user_scenario>` XML wrappers.
+3. **Dual Execution Mode (Live Interactions API & Intelligent Fallback)**:
+   - **Live Cloud AI**: Connects over HTTPS to `https://generativelanguage.googleapis.com/v1/interactions` (`gemini-4-hydrogen`, fallback `gemini-3.5-flash-lite`) using the `x-goog-api-key` header and `store: false`.
+   - **Intelligent Demo Mode**: Works completely offline with zero API key or network dependencies using intent-aware and persona-aware deterministic heuristics.
 
 ---
 
 ## 🎯 How the Solution Works
 
 ### 1. Atmospheric Telemetry & Breakpoints
-Users select from predefined high-smog urban centers (Delhi-NCR, Lahore, Beijing, Salt Lake City, Mumbai, London) or simulate real-time levels using an interactive slider ($20 - 500\text{ AQI}$). The system computes sub-indices and demographic warnings based on official EPA thresholds:
+Select from 6 urban winter hotspots (Delhi-NCR, Lahore, Beijing, Salt Lake City, Mumbai, London) or drag the live AQI slider ($20 - 500$). The engine computes pollutant levels, dynamic inversion risk tier, US EPA category, and Indian CPCB NAQI rating:
 
 $$\text{AQI} = \frac{I_{\text{high}} - I_{\text{low}}}{C_{\text{high}} - C_{\text{low}}} \times (C - C_{\text{low}}) + I_{\text{low}}$$
 
-### 2. The 24-Hour Thermal Inversion Forecaster
-Surface cooling during nocturnal hours concentrates particulate emissions close to the ground. The engine models this cycle across 24 hours, pinpointing:
-- **Peak Hazard Windows** ($06:00 - 09:30$ and $19:00 - 23:00$): Strictly keep windows sealed and run filtration.
-- **Convective Dip Windows** ($12:30 - 15:30$): Solar radiation breaks the inversion layer, allowing safe, brief indoor cross-ventilation and outdoor transit.
+### 2. Live Context Decision Engine & 24-Hour Inversion Forecast
+Surface cooling during winter nights traps particulate emissions near ground level. AuraAir evaluates current AQI, persona sensitivity, and time of day to drive real-time badges (`Ventilate Now`, `N95 Mask`, `Outdoor Cardio`) alongside a 24-hour grid highlighting peak hazard hours and the midday convective dip ($12:30 - 15:30$).
 
-### 3. Persona-Centric Daily Routine Generator
-Routines dynamically adapt across five specialized user profiles:
-- **Family & Infants**: Focuses on nursery filtration, air sealing, and preventing morning school ground exposures.
-- **Elderly & Asthma / COPD**: Emphasizes bronchial spasm prevention, humidity balancing, and rescue inhaler readiness.
-- **Urban Commuter**: Recommends vehicle AC internal recirculation and electric transit switches.
-- **Athletes & Outdoor Workers**: Explains aerobic minute ventilation risks and schedules workouts for the afternoon dip.
-- **Community Leaders**: Facilitates anti-burning monitoring and collective carpooling.
-
-### 4. Quantifiable Impact & Health Calculator
+### 3. Quantifiable Impact & Community Score
 - **Inhalation Dose Avoided**:
   $$\text{Dose Avoided } (\mu\text{g}) = C_{\text{PM2.5}} \times V_E \times t \times \eta_{\text{filter}}$$
-  Calculates particulate mass prevented from entering alveoli, translated into Berkeley Earth cigarette equivalence.
-- **Avoided Carbon Emissions**: Calculates daily and annual $\text{kg CO}_2\text{e}$ savings and urban tree absorption years when shifting from solo combustion vehicles to metro or remote work.
+  Converts avoided particulate mass into Berkeley Earth cigarette equivalents.
+- **Avoided Carbon Emissions**: Computes daily/annual $\text{kg CO}_2\text{e}$ savings and mature urban tree absorption years when shifting from solo combustion vehicles to electric metro, carpooling, cycling, or WFH.
+- **Community Clean Air Score**: Interactive 7-habit household scorecard evaluating overall community mitigation impact (0–100).
 
 ---
 
 ## 💡 Assumptions Made
 
-1. **Telemetry Simulation**: Pre-configured winter urban profiles represent typical cold-season atmospheric data; users can also adjust any level manually via the slider.
-2. **Physiological Parameters**: Minute ventilation rates follow International Commission on Radiological Protection (ICRP) standards (Sleep: $6\text{ L/min}$, Rest: $10\text{ L/min}$, Transit: $20\text{ L/min}$, Exercise: $50\text{ L/min}$).
-3. **Client-Side Key Storage**: API keys are saved exclusively in browser `localStorage` and never transmitted to intermediary servers.
-4. **Intelligent Fallback**: In the absence of an active API key or network access, the deterministic heuristic engine provides accurate contextual advice.
+1. **Telemetry Simulation**: Pre-configured winter city profiles represent typical seasonal inversion baselines; manual slider adjustments scale derived pollutant concentrations proportionally for interactive simulation.
+2. **Physiological Constants**: Minute ventilation rates follow ICRP standards (Sleep: $6\text{ L/min}$, Rest: $10\text{ L/min}$, Walking: $20\text{ L/min}$, Running: $50\text{ L/min}$).
+3. **Transport Emission Factors**: Commute carbon factors follow IPCC / UK Defra passenger-kilometer averages ($\text{g CO}_2\text{e/km}$).
+4. **Client-Side Key Storage**: Optional user API keys remain strictly in browser `localStorage` and are transmitted only to Google's official API via request headers.
 
 ---
 
 ## 📊 Evaluation Criteria Mapping
 
-| Rubric Focus Area | Architectural Implementation in AuraAir | Evidence / Verification |
+| Focus Area | Architectural Implementation in AuraAir | Verification |
 | :--- | :--- | :--- |
-| **Code Quality** | Modular ES2020 modules (`aqi-engine.js`, `impact-calculator.js`, `gemini.js`, `app.js`). Strict mode, clean separation of concerns, comprehensive JSDoc annotations. | Zero code smells; modular files in `js/` |
-| **Security** | Zero hardcoded keys, client-side input sanitization (`sanitizeInput`), event-handler stripping (`stripUnsafeTags`), 1000-char input capping, CSP meta tag, and XML prompt isolation. | Documented in `SECURITY.md`; 7 dedicated security tests |
-| **Efficiency** | Zero npm runtime dependencies. Pure vanilla client-side app loading in $< 80\text{ ms}$. Repository footprint $< 1\text{ MB}$ (well below the 10 MB limit). 600 ms API rate throttling. | Repository size check in CI workflow |
-| **Testing** | 97-test automated verification suite with 100% pass rate. Covers interpolation math, inhalation physics, carbon formulas, XSS vectors, and persona responses. | Run via `node tests/run-tests.js` (97/97 passing) |
-| **Accessibility (a11y)** | WCAG 2.1 AA compliant. Includes keyboard skip link, `aria-live` screen reader announcer, High-Contrast Mode toggle (AAA ratio), and Colorblind mode with geometric status borders. | Toggles in header; ARIA landmarks in `index.html` |
-| **Problem Statement Alignment** | Directly tackles Challenge 6: severe winter smog, thermal inversions, low-emission daily routines, indoor air hacks, sustainable commute alternatives, and quantified impacts. | All 5 challenge facets visible in application tabs |
+| **Code Quality** | Modular UMD JS (`aqi-engine.js`, `impact-calculator.js`, `gemini.js`, `app.js`), strict mode, JSDoc annotations, `.eslintrc.json`, `.editorconfig`, self-contained CSS (`css/styles.css`). | `node --check` & clean modular design |
+| **Security** | Strict CSP (`script-src 'self'`, zero `'unsafe-eval'` / `'unsafe-inline'`), header-based `x-goog-api-key`, `store: false`, HTML/event-handler/boundary-tag stripping, 1000-char limit, zero hardcoded secrets. | Documented in [SECURITY.md](SECURITY.md) & static audit suite |
+| **Efficiency** | Zero npm runtime dependencies and zero external CSS/JS CDN scripts; works 100% offline; repository size well under 1 MB (10 MB limit); 600 ms API rate throttle. | Repo size check in [ci.yml](.github/workflows/ci.yml) |
+| **Testing** | 151 automated unit, integration, mocked API, DOM/UI, accessibility, and static security tests with 100% pass rate. | `node tests/run-tests.js` |
+| **Accessibility** | WCAG 2.1 AA/AAA compliant: skip link, `aria-live` polite announcements, WAI-ARIA keyboard tab navigation (`ArrowLeft`/`ArrowRight`/`Home`/`End`), `aria-pressed` toggles, `aria-valuenow` meters, High-Contrast AAA mode, and dynamic `data-status` Colorblind pattern mode. | Verified in Suite 12 & `index.html` |
+| **Problem Alignment** | Covers all Challenge 6 requirements: winter inversion modeling, persona routines, IAQ DIY blueprints, sustainable commute carbon math, health impact, and context-aware GenAI assistant. | All 5 interactive tabs + Decision Engine |
 
 ---
 
 ## 🧪 Testing and Verification
 
-Run the automated test suite locally:
+Run the zero-dependency automated verification suite locally:
 
 ```bash
 node tests/run-tests.js
 ```
 
-### Test Suite Summary:
-```
-======================================================
-🏁 TEST EXECUTION COMPLETE
-======================================================
-Total Tests Run:  97
-Tests Passed:     97 ✅
-Tests Failed:     0 🎉
-
-🌟 100% OF TESTS PASSED! Project is mathematically verified and robust.
-```
+All **151/151** tests pass across 13 suites covering US EPA & Indian NAQI math, thermal inversion forecasting, persona routines, inhalation physics, carbon calculations, community scoring, XSS/injection sanitization, Markdown rendering, Gemini Interactions API mocking, DOM/accessibility integration, and static CSP/HTML security checks.
 
 ---
 
 ## 🚀 Quick Start Guide
 
 ### Prerequisites
-- Any modern web browser (Google Chrome, Mozilla Firefox, Microsoft Edge, Safari).
-- Node.js (v18+) for running automated test suites.
+- Any modern web browser (Chrome, Firefox, Edge, Safari)
+- Node.js (v18+) for running the automated test suite
 
 ### Running Locally
 1. Clone the repository:
@@ -154,18 +136,18 @@ Tests Failed:     0 🎉
    git clone https://github.com/swatiicfai/PromptWars-Challenge-6.git
    cd PromptWars-Challenge-6
    ```
-2. Open `index.html` directly in your browser, or serve it:
+2. Open `index.html` directly in your browser, or serve locally:
    ```bash
    npx serve .
    ```
 3. To test GenAI features:
-   - Type `demo` or leave blank to use the **Intelligent Demo Mode**.
-   - Or paste a valid Google Gemini API key into the top input and click **Save**.
+   - Leave the key blank or click **Demo** to use **Intelligent Demo Mode**.
+   - Or paste a Google Gemini API key and click **Save** to invoke **Gemini 4 Hydrogen** via the Interactions API.
 
 ---
 
 ## 👩‍💻 Author & Credits
 
 **Swati Gupta**  
-*Built with ❤️ for PromptWars Virtual – Challenge 6: Urban Air Quality Assistant*  
-**Powered by Google Gemini 2.0 Flash • Pure HTML/CSS/JS • Zero Bloat**
+*Built for PromptWars Virtual – Challenge 6: Urban Air Quality Assistant*  
+**Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS • Zero Runtime Bloat**

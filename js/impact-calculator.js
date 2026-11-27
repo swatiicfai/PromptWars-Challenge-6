@@ -2,7 +2,7 @@
  * @file impact-calculator.js
  * @description Quantifiable scientific impact calculation engine for personal inhalation exposure,
  * avoided carbon emissions (CO2e), cigarette-equivalent toxicity benchmarks, and DIY clean air hacks.
- * @version 1.0.0
+ * @version 2.0.0
  * @license MIT
  */
 
@@ -167,25 +167,22 @@
    * @returns {Object} Calculated dose avoided and equivalence metrics
    */
   function calculateInhalationImpact(pm25Concentration, hours, activity, interventionKey) {
-    const c = Math.max(0, Number(pm25Concentration) || 100);
-    const h = Math.max(0.1, Math.min(24, Number(hours) || 2));
+    const parsedConc = Number(pm25Concentration);
+    const c = Number.isFinite(parsedConc) ? Math.max(0, parsedConc) : 100;
+
+    const parsedHours = Number(hours);
+    const h = Number.isFinite(parsedHours) ? Math.max(0.1, Math.min(24, parsedHours)) : 2;
+
     const vent = VENTILATION_RATES[activity] || VENTILATION_RATES.walking;
     const intervention = INTERVENTIONS[interventionKey] || INTERVENTIONS.n95Mask;
 
-    // Total air volume inhaled in cubic meters
     const totalAirInhaledM3 = vent.m3ph * h;
-
-    // Potential inhaled PM2.5 with zero protection in micrograms (ug)
     const potentialDoseUg = c * totalAirInhaledM3;
-
-    // Actual inhaled dose with chosen intervention
     const actualDoseUg = potentialDoseUg * (1 - intervention.efficiency);
-
-    // Micrograms avoided
     const avoidedUg = potentialDoseUg * intervention.efficiency;
 
-    // Berkeley Earth conversion: Inhaling 22 ug/m3 over 24 hours (approx 350-400 ug total dose) is roughly equivalent to 1 cigarette
-    const cigaretteDoseBenchmarkUg = 22 * (0.6 * 24); // approx 316.8 ug
+    // Berkeley Earth conversion: Inhaling 22 ug/m3 over 24 hours (~316.8 ug total dose) ~ 1 cigarette
+    const cigaretteDoseBenchmarkUg = 22 * (0.6 * 24);
     const cigarettesAvoided = Math.round((avoidedUg / cigaretteDoseBenchmarkUg) * 10) / 10;
 
     return {
@@ -198,7 +195,7 @@
       actualDoseUg: Math.round(actualDoseUg),
       avoidedUg: Math.round(avoidedUg),
       avoidedMg: Math.round((avoidedUg / 1000) * 100) / 100,
-      cigarettesAvoided: cigarettesAvoided,
+      cigarettesAvoided,
       percentReduction: Math.round(intervention.efficiency * 100)
     };
   }
@@ -213,12 +210,15 @@
    * @returns {Object} Daily and annual CO2e savings and tree absorption equivalents
    */
   function calculateCarbonSavings(distanceKm, baselineModeKey, alternativeModeKey, daysPerYear = 250) {
-    const dist = Math.max(0.5, Number(distanceKm) || 15);
+    const parsedDist = Number(distanceKm);
+    const dist = Number.isFinite(parsedDist) ? Math.max(0.5, parsedDist) : 15;
+
     const baseline = TRANSIT_EMISSION_FACTORS[baselineModeKey] || TRANSIT_EMISSION_FACTORS.petrolCar;
     const alternative = TRANSIT_EMISSION_FACTORS[alternativeModeKey] || TRANSIT_EMISSION_FACTORS.metroRail;
-    const days = Math.max(1, Number(daysPerYear) || 250);
 
-    // Grams of CO2e per day
+    const parsedDays = Number(daysPerYear);
+    const days = Number.isFinite(parsedDays) ? Math.max(1, parsedDays) : 250;
+
     const baselineDailyGrams = baseline.gPerKm * dist;
     const alternativeDailyGrams = alternative.gPerKm * dist;
     const dailySavedGrams = Math.max(0, baselineDailyGrams - alternativeDailyGrams);
@@ -228,17 +228,18 @@
 
     // 1 mature urban tree absorbs roughly 22 kg CO2 per year
     const treeYearsEquivalent = Math.round((annualSavedKg / 22) * 10) / 10;
+    const percentEmissionsCut = baseline.gPerKm > 0
+      ? Math.max(0, Math.round(((baseline.gPerKm - alternative.gPerKm) / baseline.gPerKm) * 100))
+      : 0;
 
     return {
       distanceKm: dist,
       baselineMode: baseline.label,
       alternativeMode: alternative.label,
-      dailySavedKg: dailySavedKg,
-      annualSavedKg: annualSavedKg,
-      treeYearsEquivalent: treeYearsEquivalent,
-      percentEmissionsCut: baseline.gPerKm > 0
-        ? Math.round(((baseline.gPerKm - alternative.gPerKm) / baseline.gPerKm) * 100)
-        : 0
+      dailySavedKg,
+      annualSavedKg,
+      treeYearsEquivalent,
+      percentEmissionsCut
     };
   }
 
@@ -247,10 +248,10 @@
    * Based on actions adopted by the user
    *
    * @param {Object} actions - Boolean map of actions taken
-   * @returns {Object} Score, rank tier, and encouraging evaluation
+   * @returns {Object} Score, rank tier, badge, and encouraging evaluation
    */
   function evaluateCommunityScore(actions = {}) {
-    let score = 20; // Base baseline score
+    let score = 20;
 
     if (actions.wfhOrMetro) score += 20;
     if (actions.corsiRosenthal) score += 18;
@@ -281,10 +282,10 @@
     }
 
     return {
-      score: score,
-      tier: tier,
-      badge: badge,
-      summary: summary
+      score,
+      tier,
+      badge,
+      summary
     };
   }
 
