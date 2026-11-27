@@ -1,0 +1,48 @@
+{
+  "name": "AuraAir – Urban Air Quality Assistant",
+  "short_name": "AuraAir",
+  "description": "GenAI-powered Urban Air Quality & Winter Smog Defense Assistant for Families and Communities",
+  "start_url": "/PromptWars-Challenge-6/",
+  "scope": "/PromptWars-Challenge-6/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#0d9488",
+  "orientation": "any",
+  "lang": "en",
+  "categories": ["health", "lifestyle", "weather"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='42' fill='%230d9488'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='108'%3E%F0%9F%8D%83%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%230d9488'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='288'%3E%F0%9F%8D%83%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "label": "AuraAir Dashboard – Live AQI Telemetry & Thermal Inversion Forecast",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Delhi-NCR Air Report",
+      "short_name": "Delhi AQI",
+      "description": "Open AuraAir to Delhi-NCR air quality dashboard",
+      "url": "/PromptWars-Challenge-6/#dashboard"
+    },
+    {
+      "name": "GenAI Assistant",
+      "short_name": "AI Chat",
+      "description": "Ask AuraAir a question powered by Gemini 4 Hydrogen",
+      "url": "/PromptWars-Challenge-6/#assistant"
+    }
+  ],
+  "prefer_related_applications": false
+}

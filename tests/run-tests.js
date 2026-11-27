@@ -856,6 +856,52 @@ async function runAllTests() {
   });
 
   // ==========================================
+  // SUITE 14: PWA, Service Worker & CHANGELOG Compliance
+  // ==========================================
+  runSuite('PWA Manifest, Service Worker & Release Documentation', () => {
+    const rootDir = path.resolve(__dirname, '..');
+    const htmlContent = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
+
+    // PWA manifest present and linked
+    assert(fs.existsSync(path.join(rootDir, 'manifest.json')), 'manifest.json file exists in repo root');
+    const manifest = JSON.parse(fs.readFileSync(path.join(rootDir, 'manifest.json'), 'utf8'));
+    assert(typeof manifest.name === 'string' && manifest.name.length > 0, 'manifest.json has a non-empty name');
+    assert(typeof manifest.short_name === 'string' && manifest.short_name.length > 0, 'manifest.json has a short_name');
+    assert(manifest.display === 'standalone', 'manifest.json sets display mode to standalone');
+    assert(typeof manifest.start_url === 'string', 'manifest.json defines a start_url');
+    assert(Array.isArray(manifest.icons) && manifest.icons.length >= 2, 'manifest.json provides at least 2 icon sizes');
+    assert(htmlContent.includes('rel="manifest"'), 'index.html links manifest.json via <link rel="manifest">');
+    assert(htmlContent.includes('apple-touch-icon'), 'index.html provides apple-touch-icon fallback');
+
+    // Service Worker present and registered
+    assert(fs.existsSync(path.join(rootDir, 'sw.js')), 'sw.js Service Worker file exists in repo root');
+    const swContent = fs.readFileSync(path.join(rootDir, 'sw.js'), 'utf8');
+    assert(swContent.includes("'use strict'"), 'Service Worker enforces strict mode');
+    assert(swContent.includes('CACHE_NAME'), 'Service Worker defines a versioned cache name');
+    assert(swContent.includes("'install'"), 'Service Worker handles install event');
+    assert(swContent.includes("'activate'"), 'Service Worker handles activate event');
+    assert(swContent.includes("'fetch'"), 'Service Worker handles fetch event');
+    assert(swContent.includes('caches.open'), 'Service Worker uses Cache API for offline asset storage');
+    assert(swContent.includes('generativelanguage.googleapis.com'), 'Service Worker bypasses cache for Gemini API calls (network-only)');
+    assert(swContent.includes('clients.claim'), 'Service Worker claims clients on activation for immediate control');
+    assert(htmlContent.includes('serviceWorker'), 'index.html registers Service Worker via navigator.serviceWorker');
+
+    // CHANGELOG present and structured
+    assert(fs.existsSync(path.join(rootDir, 'CHANGELOG.md')), 'CHANGELOG.md documents version history');
+    const changelog = fs.readFileSync(path.join(rootDir, 'CHANGELOG.md'), 'utf8');
+    assert(changelog.includes('[2.0.1]'), 'CHANGELOG.md includes v2.0.1 release entry');
+    assert(changelog.includes('[2.0.0]'), 'CHANGELOG.md includes v2.0.0 release entry');
+    assert(changelog.includes('### Added'), 'CHANGELOG.md uses standard Keep a Changelog sections');
+
+    // Package.json completeness
+    const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
+    assert(pkg.scripts && pkg.scripts.test === 'node tests/run-tests.js', 'package.json "test" script runs node tests/run-tests.js');
+    assert(pkg.engines && pkg.engines.node, 'package.json declares Node.js engine requirement');
+    assert(pkg.homepage && pkg.homepage.includes('github.io'), 'package.json links GitHub Pages homepage');
+    assert(pkg.repository && pkg.repository.url, 'package.json includes repository URL');
+  });
+
+  // ==========================================
   // SUMMARY
   // ==========================================
   console.log(`\n======================================================`);

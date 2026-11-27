@@ -11,6 +11,8 @@
   <title>AuraAir – Urban Air Quality &amp; Smog Defense Assistant</title>
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d9488'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='36'%3E%F0%9F%8D%83%3C/text%3E%3C/svg%3E" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='42' fill='%230d9488'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='108'%3E%F0%9F%8D%83%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body class="app-body">
@@ -543,5 +545,20 @@
   <script src="js/impact-calculator.js"></script>
   <script src="js/gemini.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- Progressive Web App Service Worker registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js')
+          .then(function (reg) {
+            console.info('[AuraAir SW] Registered, scope:', reg.scope);
+          })
+          .catch(function (err) {
+            console.warn('[AuraAir SW] Registration failed:', err);
+          });
+      });
+    }
+  </script>
 </body>
 </html>

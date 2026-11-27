@@ -66,4 +66,30 @@ jobs:
 
       - name: Execute Automated Verification Suite
         run: |
-          node tests/run-tests.js
+          OUTPUT=$(node tests/run-tests.js 2>&1)
+          echo "$OUTPUT"
+          # Assert 100% pass rate — fail CI if any test fails
+          if echo "$OUTPUT" | grep -q "Tests Failed:     0"; then
+            echo "✅ All tests passed — 100% pass rate confirmed"
+          else
+            echo "❌ Test failures detected — aborting CI"
+            exit 1
+          fi
+          # Assert minimum test count to prevent test regression
+          PASSED=$(echo "$OUTPUT" | grep -oP 'Tests Passed:\s+\K[0-9]+')
+          echo "Tests passed count: $PASSED"
+          if [ "${PASSED:-0}" -lt 220 ]; then
+            echo "❌ Test suite regression: fewer than 220 tests passing"
+            exit 1
+          fi
+          echo "✅ Test suite integrity verified: $PASSED tests passing"
+
+      - name: Verify Service Worker Exists
+        run: |
+          test -f sw.js && echo "✅ Service Worker sw.js present"
+          test -f manifest.json && echo "✅ PWA manifest.json present"
+
+      - name: Verify PWA Manifest Linked in HTML
+        run: |
+          grep -q 'rel="manifest"' index.html && echo "✅ manifest.json linked in index.html"
+          grep -q 'serviceWorker' index.html && echo "✅ Service Worker registered in index.html"
