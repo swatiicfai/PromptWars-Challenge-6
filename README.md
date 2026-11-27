@@ -3,12 +3,24 @@
 > **PromptWars Virtual: [Challenge 6] Urban Air Quality Assistant**  
 > An intelligent, context-aware GenAI application engineered to help families and urban communities navigate severe winter thermal inversions, minimize toxic particulate exposure ($PM_{2.5}$), and adopt high-impact low-emission lifestyles.
 
+[![Live Demo](https://img.shields.io/badge/🌐%20Live%20Demo-GitHub%20Pages-22c55e?style=for-the-badge)](https://swatiicfai.github.io/PromptWars-Challenge-6/)
+[![Demo Video](https://img.shields.io/badge/🎥%20Demo%20Video-YouTube-FF0000?style=for-the-badge&logo=youtube)](https://youtu.be/qthQHZ2rPMs)
 [![CI Pipeline](https://img.shields.io/badge/CI%20Pipeline-Passing-22c55e?style=for-the-badge&logo=githubactions)](.github/workflows/ci.yml)
 [![Tests Passing](https://img.shields.io/badge/Tests-151%2F151%20Passed-10b981?style=for-the-badge)](tests/run-tests.js)
 [![GenAI](https://img.shields.io/badge/GenAI-Gemini%204%20Hydrogen-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
 [![Accessibility](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA%2FAAA-06b6d4?style=for-the-badge)](#-evaluation-criteria-mapping)
 [![Repo Size](https://img.shields.io/badge/Repo%20Size-%3C%201%20MB-8b5cf6?style=for-the-badge)](#-evaluation-criteria-mapping)
 [![License](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](LICENSE)
+
+---
+
+## 🔗 Quick Links
+
+| Resource | Link |
+|---|---|
+| 🌐 **Live Demo** | https://swatiicfai.github.io/PromptWars-Challenge-6/ |
+| 🎥 **Demo Video** | https://youtu.be/qthQHZ2rPMs |
+| 📦 **GitHub Repo** | https://github.com/swatiicfai/PromptWars-Challenge-6 |
 
 ---
 
