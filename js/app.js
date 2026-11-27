@@ -22,43 +22,63 @@
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (AQIEngine, ImpactCalculator, GeminiService) {
 
-  const safeStorage = {
-    get(key) {
-      try {
-        return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
-      } catch (_err) {
-        return null;
-      }
-    },
-    set(key, value) {
-      try {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem(key, String(value));
+  function createStorageAdapter(storageProviderGetter) {
+    return {
+      get(key) {
+        try {
+          const store = storageProviderGetter();
+          return store ? store.getItem(key) : null;
+        } catch (_err) {
+          return null;
         }
-      } catch (_err) {
-        // Ignore storage quota or sandbox restrictions
-      }
-    },
-    remove(key) {
-      try {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem(key);
+      },
+      set(key, value) {
+        try {
+          const store = storageProviderGetter();
+          if (store) {
+            store.setItem(key, String(value));
+          }
+        } catch (_err) {
+          // Ignore storage quota or sandbox restrictions
         }
-      } catch (_err) {
-        // Ignore storage errors
+      },
+      remove(key) {
+        try {
+          const store = storageProviderGetter();
+          if (store) {
+            store.removeItem(key);
+          }
+        } catch (_err) {
+          // Ignore storage errors
+        }
       }
-    }
-  };
+    };
+  }
+
+  const safeStorage = createStorageAdapter(() =>
+    typeof localStorage !== 'undefined' ? localStorage : null
+  );
+
+  // Store sensitive API credentials in volatile sessionStorage only (cleared on tab close)
+  const safeSessionStorage = createStorageAdapter(() =>
+    typeof sessionStorage !== 'undefined' ? sessionStorage : null
+  );
 
   function createInitialState() {
+    // Purge any legacy persistent API key from localStorage for defense-in-depth
+    safeStorage.remove('auraair_gemini_key');
+
     return {
-      apiKey: safeStorage.get('auraair_gemini_key') || '',
+      apiKey: safeSessionStorage.get('auraair_gemini_key') || '',
       selectedCity: 'delhi-ncr',
       customAQI: 385,
       selectedPersona: 'family',
+      selectedHour: null,
       activeTab: 'tab-dashboard',
       highContrast: safeStorage.get('auraair_high_contrast') === 'true',
       colorblindMode: safeStorage.get('auraair_colorblind') === 'true',
+      isGenerating: false,
+      lastForecastAqi: null,
       chatHistory: [],
       savedActions: {
         wfhOrMetro: true,
@@ -75,6 +95,19 @@
   let state = createInitialState();
   let dom = {};
   let toastTimer = null;
+  let pendingRenderRaf = null;
+
+  function getActiveCity() {
+    return AQIEngine.PRESET_CITIES[state.selectedCity] || AQIEngine.PRESET_CITIES['delhi-ncr'];
+  }
+
+  function getTimeWindowLabel(hourOverride) {
+    const h = Number.isInteger(hourOverride) ? hourOverride : new Date().getHours();
+    if (h >= 12 && h <= 15) return `${h}:00 (Midday Convective Dip)`;
+    if (h >= 6 && h <= 9) return `${h}:00 (Morning Inversion Peak)`;
+    if (h >= 19 && h <= 23) return `${h}:00 (Evening / Night Inversion)`;
+    return `${h}:00 (Transition Window)`;
+  }
 
   function initDomElements(doc) {
     const d = doc || document;
@@ -94,6 +127,7 @@
       customAqiSlider: d.getElementById('customAqiSlider'),
       customAqiDisplay: d.getElementById('customAqiDisplay'),
       personaSelect: d.getElementById('personaSelect'),
+      timeWindowSelect: d.getElementById('timeWindowSelect'),
 
       tabBtns: d.querySelectorAll('.tab-nav-btn'),
       tabPanels: d.querySelectorAll('.tab-panel'),
@@ -110,6 +144,7 @@
       telemetryAqiVal: d.getElementById('telemetryAqiVal'),
       telemetryAqiBadge: d.getElementById('telemetryAqiBadge'),
       telemetryNaqiSummary: d.getElementById('telemetryNaqiSummary'),
+      telemetryWeatherMeta: d.getElementById('telemetryWeatherMeta'),
       telemetryAqiAdvisory: d.getElementById('telemetryAqiAdvisory'),
       telemetryPm25: d.getElementById('telemetryPm25'),
       telemetryPm10: d.getElementById('telemetryPm10'),
@@ -183,8 +218,7 @@
 
   function updateApiStatus() {
     if (!dom.apiStatusBadge) return;
-    const key = state.apiKey.trim().toLowerCase();
-    if (!key || key === 'demo' || key === 'test') {
+    if (!GeminiService.isPlausibleApiKey(state.apiKey)) {
       dom.apiStatusBadge.textContent = 'Mode: Intelligent Demo (Zero Key Required)';
       dom.apiStatusBadge.className = 'status-badge status-badge-demo';
     } else {
@@ -203,8 +237,9 @@
     }
   }
 
-  function renderContextVerdict(aqi, persona) {
-    const verdict = AQIEngine.getContextDecisionVerdict({ aqi, persona });
+  function renderContextVerdict(aqi, persona, hourOverride = state.selectedHour) {
+    const hourArg = Number.isInteger(hourOverride) ? hourOverride : undefined;
+    const verdict = AQIEngine.getContextDecisionVerdict({ aqi, persona, hour: hourArg });
 
     if (dom.contextVerdictBanner) {
       dom.contextVerdictBanner.setAttribute('data-status', verdict.statusKey);
@@ -227,10 +262,11 @@
       dom.verdictExerciseChip.textContent = verdict.outdoorExerciseSafe ? '🏃 Outdoor Cardio: SAFE' : '🏃 Outdoor Cardio: UNSAFE';
       dom.verdictExerciseChip.className = `decision-chip ${verdict.outdoorExerciseSafe ? 'chip-safe' : 'chip-danger'}`;
     }
+    return verdict;
   }
 
   function renderDashboard() {
-    const city = AQIEngine.PRESET_CITIES[state.selectedCity] || AQIEngine.PRESET_CITIES['delhi-ncr'];
+    const city = getActiveCity();
     const aqi = state.customAQI;
     const cat = AQIEngine.getAQICategory(aqi);
     const pollutants = AQIEngine.estimatePollutantsFromAQI(aqi, city);
@@ -249,11 +285,14 @@
       dom.telemetryAqiBadge.textContent = `${cat.badge} ${cat.category}`;
       if (dom.telemetryAqiBadge.style) {
         dom.telemetryAqiBadge.style.backgroundColor = cat.color;
-        dom.telemetryAqiBadge.style.color = '#ffffff';
+        dom.telemetryAqiBadge.style.color = cat.badgeTextColor || '#ffffff';
       }
     }
     if (dom.telemetryNaqiSummary) {
       dom.telemetryNaqiSummary.textContent = `Indian CPCB NAQI: ${naqi.naqi} (${naqi.category})`;
+    }
+    if (dom.telemetryWeatherMeta) {
+      dom.telemetryWeatherMeta.textContent = `${city.temp}°C • ${city.humidity}% RH • ${city.primarySource}`;
     }
     if (dom.telemetryAqiAdvisory) dom.telemetryAqiAdvisory.textContent = cat.advisory;
 
@@ -271,17 +310,34 @@
       dom.customAqiSlider.setAttribute('aria-valuetext', `AQI ${aqi} (${cat.category})`);
     }
 
-    renderContextVerdict(aqi, state.selectedPersona);
-    renderHourlyForecast(aqi);
+    renderContextVerdict(aqi, state.selectedPersona, state.selectedHour);
+    if (state.lastForecastAqi !== aqi) {
+      renderHourlyForecast(aqi);
+      state.lastForecastAqi = aqi;
+    }
     renderRoutineTab(state.selectedPersona, aqi);
     calculateInhalation();
     calculateCarbon();
+  }
+
+  function scheduleDashboardRender() {
+    if (typeof requestAnimationFrame !== 'function') {
+      renderDashboard();
+      return;
+    }
+    if (pendingRenderRaf !== null) return;
+    pendingRenderRaf = requestAnimationFrame(() => {
+      pendingRenderRaf = null;
+      renderDashboard();
+    });
   }
 
   function renderHourlyForecast(baseAqi) {
     if (!dom.hourlyForecastGrid) return;
     const d = dom.doc || document;
     const forecast = AQIEngine.getHourlyInversionForecast(baseAqi);
+    const fragment = typeof d.createDocumentFragment === 'function' ? d.createDocumentFragment() : null;
+    const targetParent = fragment || dom.hourlyForecastGrid;
 
     dom.hourlyForecastGrid.innerHTML = '';
     forecast.forEach(slot => {
@@ -307,13 +363,17 @@
 
       const tagEl = d.createElement('div');
       tagEl.className = `forecast-tag ${isOptimal ? 'forecast-tag-optimal' : ''}`;
-      tagEl.textContent = isOptimal ? '✨ Dip' : cat.category.split(' ')[0];
+      tagEl.textContent = isOptimal ? '✨ Dip' : (slot.shortLabel || cat.shortLabel);
 
       card.appendChild(timeEl);
       card.appendChild(valEl);
       card.appendChild(tagEl);
-      dom.hourlyForecastGrid.appendChild(card);
+      targetParent.appendChild(card);
     });
+
+    if (fragment) {
+      dom.hourlyForecastGrid.appendChild(fragment);
+    }
   }
 
   function renderRoutineTab(persona, aqi) {
@@ -331,6 +391,8 @@
   function renderIaqHacks() {
     if (!dom.hacksContainer) return;
     const d = dom.doc || document;
+    const fragment = typeof d.createDocumentFragment === 'function' ? d.createDocumentFragment() : null;
+    const targetParent = fragment || dom.hacksContainer;
     dom.hacksContainer.innerHTML = '';
 
     ImpactCalculator.IAQ_HACKS.forEach(hack => {
@@ -411,19 +473,26 @@
       card.appendChild(summaryEl);
       card.appendChild(cols);
       card.appendChild(noteEl);
-      dom.hacksContainer.appendChild(card);
+      targetParent.appendChild(card);
     });
+
+    if (fragment) {
+      dom.hacksContainer.appendChild(fragment);
+    }
   }
 
   function calculateInhalation() {
-    const city = AQIEngine.PRESET_CITIES[state.selectedCity] || AQIEngine.PRESET_CITIES['delhi-ncr'];
+    const city = getActiveCity();
     const pollutants = AQIEngine.estimatePollutantsFromAQI(state.customAQI, city);
 
     const activity = dom.calcActivity ? dom.calcActivity.value : 'walking';
     const hours = dom.calcDuration ? Number(dom.calcDuration.value) : 2;
     const intervention = dom.calcIntervention ? dom.calcIntervention.value : 'n95Mask';
 
-    if (dom.calcDuration) dom.calcDuration.setAttribute('aria-valuenow', String(hours));
+    if (dom.calcDuration) {
+      dom.calcDuration.setAttribute('aria-valuenow', String(hours));
+      dom.calcDuration.setAttribute('aria-valuetext', `${hours} hours`);
+    }
     if (dom.calcDurationVal) dom.calcDurationVal.textContent = `${hours} hrs`;
 
     const res = ImpactCalculator.calculateInhalationImpact(pollutants.pm25, hours, activity, intervention);
@@ -440,7 +509,10 @@
     const baseline = dom.calcBaselineMode ? dom.calcBaselineMode.value : 'petrolCar';
     const alt = dom.calcAltMode ? dom.calcAltMode.value : 'metroRail';
 
-    if (dom.calcDistance) dom.calcDistance.setAttribute('aria-valuenow', String(distance));
+    if (dom.calcDistance) {
+      dom.calcDistance.setAttribute('aria-valuenow', String(distance));
+      dom.calcDistance.setAttribute('aria-valuetext', `${distance} kilometers`);
+    }
     if (dom.calcDistanceVal) dom.calcDistanceVal.textContent = `${distance} km`;
 
     const res = ImpactCalculator.calculateCarbonSavings(distance, baseline, alt);
@@ -519,9 +591,14 @@
   }
 
   async function handleSendMessage(customPrompt) {
+    if (state.isGenerating) return;
     const query = customPrompt || (dom.chatInput ? dom.chatInput.value.trim() : '');
     if (!query) return;
 
+    state.isGenerating = true;
+    if (dom.chatMessagesContainer) {
+      dom.chatMessagesContainer.setAttribute('aria-busy', 'true');
+    }
     if (dom.chatInput) dom.chatInput.value = '';
 
     const priorHistory = state.chatHistory.slice(-4);
@@ -531,8 +608,15 @@
     const loadingId = appendLoadingMessage();
 
     try {
-      const city = AQIEngine.PRESET_CITIES[state.selectedCity] || AQIEngine.PRESET_CITIES['delhi-ncr'];
+      const city = getActiveCity();
       const cat = AQIEngine.getAQICategory(state.customAQI);
+      const pollutants = AQIEngine.estimatePollutantsFromAQI(state.customAQI, city);
+      const hourArg = Number.isInteger(state.selectedHour) ? state.selectedHour : undefined;
+      const verdict = AQIEngine.getContextDecisionVerdict({
+        aqi: state.customAQI,
+        persona: state.selectedPersona,
+        hour: hourArg
+      });
 
       const adviceMarkdown = await GeminiService.generateAdvice({
         apiKey: state.apiKey,
@@ -541,6 +625,9 @@
         cityName: city.name,
         aqi: state.customAQI,
         category: cat.category,
+        pollutants,
+        timeWindow: getTimeWindowLabel(state.selectedHour),
+        verdict,
         history: priorHistory
       });
 
@@ -549,28 +636,38 @@
       announceToScreenReader('AuraAir generated new advice');
     } catch (err) {
       removeLoadingMessage(loadingId);
-      const safeMsg = GeminiService.sanitizeInput(err && err.message ? err.message : 'Unable to generate response.');
+      const safeMsg = GeminiService.sanitizeInput(
+        GeminiService.redactSecrets(err && err.message ? err.message : 'Unable to generate response.')
+      );
       appendChatMessage(
         'assistant',
         `⚠️ **Notice:** ${safeMsg}\n\nPlease check your input or switch to Intelligent Demo Mode.`,
         true
       );
+    } finally {
+      state.isGenerating = false;
+      if (dom.chatMessagesContainer) {
+        dom.chatMessagesContainer.setAttribute('aria-busy', 'false');
+      }
     }
   }
 
   function buildActionPlanText() {
-    const city = AQIEngine.PRESET_CITIES[state.selectedCity] || AQIEngine.PRESET_CITIES['delhi-ncr'];
+    const city = getActiveCity();
     const aqi = state.customAQI;
     const cat = AQIEngine.getAQICategory(aqi);
     const routine = AQIEngine.getPersonalizedRoutine(state.selectedPersona, aqi);
+    const timeLabel = getTimeWindowLabel(state.selectedHour);
 
     return `=====================================================
 AuraAir: Urban Air Quality Daily Action Plan
 Challenge 6: Urban Air Quality Assistant
 =====================================================
 Generated: ${new Date().toISOString()}
-Location: ${city.name}
+Location: ${city.name} (${city.temp}°C, ${city.humidity}% RH)
+Active Context Window: ${timeLabel}
 Current AQI: ${aqi} (${cat.category})
+Primary Driver: ${city.primarySource}
 Target Persona: ${routine.title} - ${routine.targetGroup}
 
 CRITICAL PRIORITY ALERT:
@@ -661,13 +758,18 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
     if (dom.saveApiKeyBtn && dom.apiKeyInput) {
       dom.saveApiKeyBtn.addEventListener('click', () => {
         const val = dom.apiKeyInput.value.trim();
-        state.apiKey = val;
-        if (val) {
-          safeStorage.set('auraair_gemini_key', val);
-          showToast('Gemini API Key saved locally in browser storage.');
-        } else {
-          safeStorage.remove('auraair_gemini_key');
+        GeminiService.clearCache();
+        if (!val || val.toLowerCase() === 'demo' || val.toLowerCase() === 'test') {
+          state.apiKey = '';
+          safeSessionStorage.remove('auraair_gemini_key');
           showToast('Switched to Intelligent Demo Mode (No Key Required).');
+        } else if (!GeminiService.isPlausibleApiKey(val)) {
+          showToast('Invalid key format: must be 12+ characters with no spaces or quotes.');
+          return;
+        } else {
+          state.apiKey = val;
+          safeSessionStorage.set('auraair_gemini_key', val);
+          showToast('Gemini API Key stored in session memory (clears when tab closes).');
         }
         updateApiStatus();
       });
@@ -676,7 +778,9 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
     if (dom.clearApiKeyBtn) {
       dom.clearApiKeyBtn.addEventListener('click', () => {
         state.apiKey = '';
+        GeminiService.clearCache();
         if (dom.apiKeyInput) dom.apiKeyInput.value = '';
+        safeSessionStorage.remove('auraair_gemini_key');
         safeStorage.remove('auraair_gemini_key');
         updateApiStatus();
         showToast('Reset to Intelligent Demo Mode.');
@@ -721,7 +825,7 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
       dom.customAqiSlider.addEventListener('input', e => {
         state.customAQI = Number(e.target.value);
         if (dom.customAqiDisplay) dom.customAqiDisplay.textContent = String(state.customAQI);
-        renderDashboard();
+        scheduleDashboardRender();
       });
     }
 
@@ -730,6 +834,24 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
         state.selectedPersona = e.target.value;
         renderDashboard();
         announceToScreenReader(`Target persona updated to ${state.selectedPersona}`);
+      });
+    }
+
+    if (dom.timeWindowSelect) {
+      dom.timeWindowSelect.addEventListener('change', e => {
+        const val = e.target.value;
+        state.selectedHour = val === 'auto' ? null : Number.parseInt(val, 10);
+        renderDashboard();
+        announceToScreenReader(`Context time window updated: ${getTimeWindowLabel(state.selectedHour)}`);
+      });
+    }
+
+    const d = dom.doc || (typeof document !== 'undefined' ? document : null);
+    if (d && typeof d.addEventListener === 'function') {
+      d.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && dom.statusToast && !dom.statusToast.classList.contains('hidden')) {
+          dom.statusToast.classList.add('hidden');
+        }
       });
     }
 

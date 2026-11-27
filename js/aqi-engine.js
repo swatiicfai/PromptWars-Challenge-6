@@ -137,13 +137,19 @@
   /**
    * Linear interpolation function to compute AQI from pollutant concentration.
    * Formula: I = ((I_high - I_low) / (C_high - C_low)) * (C - C_low) + I_low
+   * Handles fractional values falling in inter-bracket gaps (e.g. 54.4 between 54 and 55)
+   * by interpolating smoothly to preserve strict monotonicity.
    *
    * @param {number} concentration - Pollutant concentration (ug/m3)
    * @param {Array<Object>} breakpoints - Breakpoint definition array
    * @returns {number} Calculated AQI integer
    */
   function calculateSubIndex(concentration, breakpoints) {
-    if (typeof concentration !== 'number' || Number.isNaN(concentration) || concentration < 0) {
+    if (typeof concentration !== 'number' || !Number.isFinite(concentration) || concentration < 0) {
+      return 0;
+    }
+
+    if (!Array.isArray(breakpoints) || breakpoints.length === 0) {
       return 0;
     }
 
@@ -154,6 +160,13 @@
       if (c >= bp.cLow && c <= bp.cHigh) {
         const aqi = ((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow;
         return Math.round(aqi);
+      }
+      const next = breakpoints[i + 1];
+      if (next && c > bp.cHigh && c < next.cLow) {
+        const gapSpan = next.cLow - bp.cHigh;
+        const fraction = gapSpan > 0 ? (c - bp.cHigh) / gapSpan : 0;
+        const bridged = bp.iHigh + fraction * (next.iLow - bp.iHigh);
+        return Math.round(bridged);
       }
     }
 
@@ -195,10 +208,11 @@
   }
 
   /**
-   * Get health category metadata for a given US EPA AQI value
+   * Get health category metadata for a given US EPA AQI value.
+   * Includes WCAG 2.1 AA/AAA compliant badge foreground/background pairs.
    *
    * @param {number} aqi - Overall AQI value
-   * @returns {Object} Category info with color, label, level, statusKey, and actions
+   * @returns {Object} Category info with color, badgeTextColor, shortLabel, label, level, statusKey, and actions
    */
   function getAQICategory(aqi) {
     const parsed = Number(aqi);
@@ -207,9 +221,11 @@
     if (val <= 50) {
       return {
         category: 'Good',
+        shortLabel: 'Good',
         statusKey: 'good',
         level: 1,
         color: '#10b981',
+        badgeTextColor: '#022c22',
         badge: '🟢',
         textColor: '#064e3b',
         bgColor: '#ecfdf5',
@@ -222,9 +238,11 @@
     if (val <= 100) {
       return {
         category: 'Moderate',
+        shortLabel: 'Mod',
         statusKey: 'moderate',
         level: 2,
         color: '#f59e0b',
+        badgeTextColor: '#1c1917',
         badge: '🟡',
         textColor: '#78350f',
         bgColor: '#fffbeb',
@@ -237,9 +255,11 @@
     if (val <= 150) {
       return {
         category: 'Unhealthy for Sensitive Groups',
+        shortLabel: 'USG',
         statusKey: 'moderate',
         level: 3,
         color: '#f97316',
+        badgeTextColor: '#1c1917',
         badge: '🟠',
         textColor: '#7c2d12',
         bgColor: '#fff7ed',
@@ -252,9 +272,11 @@
     if (val <= 200) {
       return {
         category: 'Unhealthy',
+        shortLabel: 'Unh',
         statusKey: 'unhealthy',
         level: 4,
-        color: '#ef4444',
+        color: '#dc2626',
+        badgeTextColor: '#ffffff',
         badge: '🔴',
         textColor: '#7f1d1d',
         bgColor: '#fef2f2',
@@ -267,9 +289,11 @@
     if (val <= 300) {
       return {
         category: 'Very Unhealthy',
+        shortLabel: 'V.Unh',
         statusKey: 'unhealthy',
         level: 5,
-        color: '#8b5cf6',
+        color: '#7c3aed',
+        badgeTextColor: '#ffffff',
         badge: '🟣',
         textColor: '#4c1d95',
         bgColor: '#f5f3ff',
@@ -281,9 +305,11 @@
     }
     return {
       category: 'Hazardous (Severe Smog)',
+      shortLabel: 'Haz',
       statusKey: 'hazardous',
       level: 6,
-      color: '#e11d48',
+      color: '#be123c',
+      badgeTextColor: '#ffffff',
       badge: '🟤',
       textColor: '#450a0a',
       bgColor: '#fef2f2',
@@ -372,6 +398,7 @@
         timeLabel: `${hour.toString().padStart(2, '0')}:00`,
         aqi: projectedAQI,
         category: getAQICategory(projectedAQI).category,
+        shortLabel: getAQICategory(projectedAQI).shortLabel,
         windowType,
         recommendation
       });

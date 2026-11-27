@@ -22,10 +22,14 @@
   const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
   const INTERACTIONS_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/interactions';
   const API_REVISION = '2026-05-20';
+  const REQUEST_TIMEOUT_MS = 25000;
+  const MAX_CACHE_ENTRIES = 20;
 
-  // Client-side rate limiting tracker
+  // Client-side rate limiting tracker and bounded session response cache
   let lastCallTime = 0;
+  let rateLimitQueue = Promise.resolve();
   const MIN_CALL_INTERVAL_MS = 600;
+  const responseCache = new Map();
 
   /**
    * System persona instruction templates for GenAI reasoning
@@ -117,8 +121,35 @@ Guidance rules:
   }
 
   /**
+   * Redacts potential API key tokens from strings before logging or display.
+   *
+   * @param {string} text - Raw text or error message
+   * @returns {string} Redacted string safe for logs
+   */
+  function redactSecrets(text) {
+    if (typeof text !== 'string') return '';
+    return text.replace(/AIza[0-9A-Za-z_-]{10,}/g, '[REDACTED_KEY]');
+  }
+
+  /**
+   * Checks whether an API key is free of whitespace/control characters and plausible.
+   *
+   * @param {string} key - Candidate key
+   * @returns {boolean} True when key passes structural sanity check
+   */
+  function isPlausibleApiKey(key) {
+    if (typeof key !== 'string') return false;
+    const trimmed = key.trim();
+    if (!trimmed || trimmed.toLowerCase() === 'demo' || trimmed.toLowerCase() === 'test') {
+      return false;
+    }
+    return trimmed.length >= 12 && trimmed.length <= 256 && !/[\s<>"'`]/.test(trimmed);
+  }
+
+  /**
    * Converts Markdown text to safe HTML for chat display.
-   * Escapes all raw HTML first, protects inline code spans, and groups list items inside <ul>.
+   * Escapes all raw HTML first, protects inline code spans, and groups ul/ol lists.
+   * Uses semantic CSS classes defined in css/styles.css.
    *
    * @param {string} markdown - Markdown formatted string
    * @returns {string} Sanitized HTML string
@@ -137,13 +168,20 @@ Guidance rules:
     // Protect inline code spans before bold/italic transformations
     const withProtectedCode = escaped.replace(/`([^`]+)`/g, (_, code) => {
       const idx = codeTokens.length;
-      codeTokens.push(`<code class="bg-slate-800 text-teal-300 px-1.5 py-0.5 rounded text-xs font-mono">${code}</code>`);
+      codeTokens.push(`<code class="md-code">${code}</code>`);
       return `@@CODE_TOKEN_${idx}@@`;
     });
 
     const lines = withProtectedCode.split(/\r?\n/);
     const output = [];
-    let inList = false;
+    let listTag = null;
+
+    const closeOpenList = () => {
+      if (listTag) {
+        output.push(`</${listTag}>`);
+        listTag = null;
+      }
+    };
 
     const formatInline = (text) =>
       text
@@ -152,50 +190,53 @@ Guidance rules:
         .replace(/@@CODE_TOKEN_(\d+)@@/g, (_, idx) => codeTokens[Number(idx)] || '');
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmed = line.trim();
+      const trimmed = lines[i].trim();
 
       if (!trimmed) {
-        if (inList) {
-          output.push('</ul>');
-          inList = false;
-        }
+        closeOpenList();
         continue;
       }
 
-      const listMatch = trimmed.match(/^[-*]\s+(.*)$/);
-      if (listMatch) {
-        if (!inList) {
-          output.push('<ul class="list-disc pl-5 space-y-1 my-2 text-slate-200">');
-          inList = true;
+      const ulMatch = trimmed.match(/^[-*]\s+(.*)$/);
+      if (ulMatch) {
+        if (listTag !== 'ul') {
+          closeOpenList();
+          output.push('<ul class="md-list">');
+          listTag = 'ul';
         }
-        output.push(`<li>${formatInline(listMatch[1])}</li>`);
+        output.push(`<li>${formatInline(ulMatch[1])}</li>`);
         continue;
       }
 
-      if (inList) {
-        output.push('</ul>');
-        inList = false;
+      const olMatch = trimmed.match(/^\d+\.\s+(.*)$/);
+      if (olMatch) {
+        if (listTag !== 'ol') {
+          closeOpenList();
+          output.push('<ol class="md-ol">');
+          listTag = 'ol';
+        }
+        output.push(`<li>${formatInline(olMatch[1])}</li>`);
+        continue;
       }
+
+      closeOpenList();
 
       if (trimmed.startsWith('### ')) {
-        output.push(`<h4 class="font-bold text-base mt-3 mb-1 text-teal-300">${formatInline(trimmed.slice(4))}</h4>`);
+        output.push(`<h4 class="md-h4">${formatInline(trimmed.slice(4))}</h4>`);
       } else if (trimmed.startsWith('## ')) {
-        output.push(`<h3 class="font-bold text-lg mt-3 mb-1 text-teal-400">${formatInline(trimmed.slice(3))}</h3>`);
+        output.push(`<h3 class="md-h3">${formatInline(trimmed.slice(3))}</h3>`);
       } else if (trimmed.startsWith('# ')) {
-        output.push(`<h2 class="font-extrabold text-xl mt-3 mb-2 text-white">${formatInline(trimmed.slice(2))}</h2>`);
+        output.push(`<h2 class="md-h2">${formatInline(trimmed.slice(2))}</h2>`);
       } else if (trimmed.startsWith('&gt; ')) {
-        output.push(`<blockquote class="border-l-4 border-teal-500 pl-3 py-1 my-2 bg-teal-950/30 text-teal-200 text-sm rounded-r">${formatInline(trimmed.slice(5))}</blockquote>`);
+        output.push(`<blockquote class="md-quote">${formatInline(trimmed.slice(5))}</blockquote>`);
       } else {
-        output.push(`<p class="mt-2 text-slate-200 leading-relaxed">${formatInline(trimmed)}</p>`);
+        output.push(`<p class="md-p">${formatInline(trimmed)}</p>`);
       }
     }
 
-    if (inList) {
-      output.push('</ul>');
-    }
+    closeOpenList();
 
-    return output.join('') || '<p class="text-slate-200"></p>';
+    return output.join('') || '<p class="md-p"></p>';
   }
 
   /**
@@ -208,15 +249,39 @@ Guidance rules:
    * @param {string} params.cityName - Current city
    * @param {number} params.aqi - Current AQI
    * @param {string} params.category - Health category
+   * @param {Object} [params.pollutants] - Pollutant concentrations (pm25, pm10, no2)
+   * @param {string} [params.timeWindow] - Active diurnal window label
+   * @param {Object} [params.verdict] - Live context decision verdict object
    * @param {Array<Object>} [params.history] - Optional recent conversation turns
    * @returns {string} Fully structured prompt string
    */
-  function buildContextualPrompt({ userQuery, persona, cityName, aqi, category, history = [] }) {
+  function buildContextualPrompt({
+    userQuery,
+    persona,
+    cityName,
+    aqi,
+    category,
+    pollutants,
+    timeWindow,
+    verdict,
+    history = []
+  }) {
     const cleanQuery = stripUnsafeTags(userQuery);
     const safeCity = stripUnsafeTags(cityName || 'Current City');
     const safeAqi = Number.isFinite(Number(aqi)) ? Math.max(0, Number(aqi)) : 250;
     const safeCategory = stripUnsafeTags(category || 'Unhealthy');
     const safePersona = stripUnsafeTags(persona || 'family');
+    const safeWindow = stripUnsafeTags(timeWindow || 'Winter Inversion Monitoring');
+
+    let pollutantLine = '';
+    if (pollutants && Number.isFinite(Number(pollutants.pm25))) {
+      pollutantLine = `\n- Particulates & Gases: PM2.5 ${pollutants.pm25} ug/m3, PM10 ${pollutants.pm10} ug/m3, NO2 ${pollutants.no2} ug/m3`;
+    }
+
+    let verdictLine = '';
+    if (verdict && typeof verdict === 'object') {
+      verdictLine = `\n- Live Engine Verdict: Ventilate=${verdict.ventilateNow ? 'YES' : 'NO'}, N95=${verdict.maskRequired ? 'REQUIRED' : 'OPTIONAL'}, OutdoorCardio=${verdict.outdoorExerciseSafe ? 'SAFE' : 'UNSAFE'}`;
+    }
 
     let historyBlock = '';
     if (Array.isArray(history) && history.length > 0) {
@@ -236,8 +301,9 @@ Guidance rules:
 
     return `CURRENT ATMOSPHERIC CONTEXT:
 - Location: ${safeCity}
-- Real-time AQI: ${safeAqi} (${safeCategory})
-- Inversion Phase: Winter ground-level thermal inversion risk active
+- Real-time AQI: ${safeAqi} (${safeCategory})${pollutantLine}
+- Active Time Window: ${safeWindow}
+- Inversion Phase: Winter ground-level thermal inversion risk model${verdictLine}
 - User Target Persona: ${safePersona}${historyBlock}
 
 USER INQUIRY:
@@ -255,7 +321,7 @@ Keep tone professional, encouraging, and medically grounded.`;
 
   /**
    * Extracts generated assistant text from Gemini Interactions API response
-   * (with defensive support for output_text or legacy candidates shape).
+   * (supporting outputs[], output_text, steps[], and legacy candidates shape).
    *
    * @param {Object} data - Parsed JSON response payload
    * @returns {string} Extracted response text or empty string
@@ -265,6 +331,23 @@ Keep tone professional, encouraging, and medically grounded.`;
 
     if (typeof data.output_text === 'string' && data.output_text.trim()) {
       return data.output_text.trim();
+    }
+
+    if (Array.isArray(data.outputs)) {
+      const outputParts = [];
+      for (let i = 0; i < data.outputs.length; i++) {
+        const out = data.outputs[i];
+        if (out && out.type === 'text' && typeof out.text === 'string') {
+          outputParts.push(out.text);
+        } else if (out && Array.isArray(out.content)) {
+          for (let j = 0; j < out.content.length; j++) {
+            const sub = out.content[j];
+            if (sub && typeof sub.text === 'string') outputParts.push(sub.text);
+          }
+        }
+      }
+      const joinedOut = outputParts.join('\n').trim();
+      if (joinedOut) return joinedOut;
     }
 
     if (Array.isArray(data.steps)) {
@@ -319,6 +402,19 @@ Keep tone professional, encouraging, and medically grounded.`;
     }
 
     if (query.includes('jog') || query.includes('exercise') || query.includes('workout') || query.includes('run')) {
+      if (aqi <= 100) {
+        return `### 🏃 Athletic & Fitness Advisory for ${city} (AQI ${aqi})
+
+1. 🛡️ **Immediate Health Protocol:**
+   - Current AQI ${aqi} allows safe outdoor aerobic exercise away from heavy diesel traffic junctions.
+   - Hydration and nasal breathing during warmup still help filter residual coarse urban dust.
+
+2. 💡 **Smart Timing Hack:**
+   - Avoid roadside sprints during peak evening traffic (18:00 - 20:00); favor parks and green belts.
+
+3. 📊 **Direct Quantifiable Impact:**
+   - Choosing park routes over arterial roads cuts direct tailpipe PM2.5 inhalation by **45% - 60%**.`;
+      }
       return `### 🏃 Athletic & Fitness Advisory: Smog Inversion Windowing
 
 1. 🛡️ **Immediate Health Protocol for ${city} (AQI ${aqi}):**
@@ -408,6 +504,21 @@ Keep tone professional, encouraging, and medically grounded.`;
    - Staying indoors in a filtered zone during inversion peaks reduces acute asthma exacerbation risk by **83%**.`;
     }
 
+    if (aqi <= 100) {
+      return `### 🌿 Clean-to-Moderate Air Plan for ${city} (AQI ${aqi})
+
+1. 🛡️ **Immediate Action (${persona}):**
+   - Air quality is currently favorable (${aqi} AQI). Natural cross-ventilation and outdoor movement are generally safe.
+   - Sensitive individuals should still monitor evening wind drops after sunset.
+
+2. 💡 **Preventative Sustainable Habit:**
+   - Use public electric metro, cycling, or walking instead of cold-start petrol cars to keep ${city}'s airsheet below AQI 100.
+   - Keep CAM Snake Plants in sleeping quarters for steady indoor VOC breakdown.
+
+3. 📊 **Direct Quantifiable Impact:**
+   - Swapping even one 15 km solo petrol commute for active transit or metro eliminates **~2.5–2.9 kg CO2e daily** and prevents localized PM2.5 buildup.`;
+    }
+
     const personaResponses = {
       family: `### 🏡 Family Air Quality Action Plan for ${city} (AQI ${aqi})
 
@@ -478,7 +589,68 @@ Keep tone professional, encouraging, and medically grounded.`;
   }
 
   /**
-   * Calls the Google Gemini Interactions API via secure headers with graceful fallback handling
+   * Serializes rate-limited spacing across concurrent requests so callers never race.
+   *
+   * @returns {Promise<void>} Resolves once minimum interval has elapsed
+   */
+  function acquireRateLimitSlot() {
+    rateLimitQueue = rateLimitQueue.then(async () => {
+      const elapsed = Date.now() - lastCallTime;
+      if (elapsed < MIN_CALL_INTERVAL_MS) {
+        await new Promise(resolve => setTimeout(resolve, MIN_CALL_INTERVAL_MS - elapsed));
+      }
+      lastCallTime = Date.now();
+    });
+    return rateLimitQueue;
+  }
+
+  /**
+   * Executes fetch with an AbortController timeout guard.
+   *
+   * @param {string} url - Endpoint URL
+   * @param {Object} options - Fetch request options
+   * @param {number} [timeoutMs=REQUEST_TIMEOUT_MS] - Abort timeout in ms
+   * @returns {Promise<Response>} Fetch response
+   */
+  async function fetchWithTimeout(url, options, timeoutMs = REQUEST_TIMEOUT_MS) {
+    if (typeof AbortController === 'undefined') {
+      return fetch(url, options);
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Stores an entry in the bounded LRU session cache.
+   *
+   * @param {string} cacheKey - Normalized cache key
+   * @param {string} value - Response markdown
+   */
+  function writeCache(cacheKey, value) {
+    if (responseCache.has(cacheKey)) {
+      responseCache.delete(cacheKey);
+    } else if (responseCache.size >= MAX_CACHE_ENTRIES) {
+      const oldestKey = responseCache.keys().next().value;
+      responseCache.delete(oldestKey);
+    }
+    responseCache.set(cacheKey, value);
+  }
+
+  /**
+   * Clears the in-memory session response cache.
+   */
+  function clearCache() {
+    responseCache.clear();
+  }
+
+  /**
+   * Calls the Google Gemini Interactions API via secure headers with caching,
+   * timeout guards, and graceful heuristic fallback handling.
    *
    * @param {Object} options - API call options
    * @param {string} options.apiKey - Gemini API Key (or 'demo')
@@ -487,6 +659,9 @@ Keep tone professional, encouraging, and medically grounded.`;
    * @param {string} [options.cityName='Delhi-NCR'] - City name
    * @param {number} [options.aqi=250] - Current AQI
    * @param {string} [options.category='Unhealthy'] - AQI Category
+   * @param {Object} [options.pollutants] - Optional pollutant breakdown
+   * @param {string} [options.timeWindow] - Optional diurnal time window
+   * @param {Object} [options.verdict] - Optional live decision verdict
    * @param {Array<Object>} [options.history=[]] - Recent conversation turns
    * @returns {Promise<string>} Markdown response from AI
    */
@@ -497,6 +672,9 @@ Keep tone professional, encouraging, and medically grounded.`;
     cityName = 'Delhi-NCR',
     aqi = 250,
     category = 'Unhealthy',
+    pollutants,
+    timeWindow,
+    verdict,
     history = []
   }) {
     const key = (apiKey || '').trim();
@@ -506,8 +684,8 @@ Keep tone professional, encouraging, and medically grounded.`;
       throw new Error('Please enter a scenario or question for the assistant.');
     }
 
-    if (!key || key.toLowerCase() === 'demo' || key.toLowerCase() === 'test') {
-      await new Promise(resolve => setTimeout(resolve, 150));
+    if (!isPlausibleApiKey(key)) {
+      await new Promise(resolve => setTimeout(resolve, 120));
       return getIntelligentFallbackResponse({
         userQuery: cleanQuery,
         persona,
@@ -517,13 +695,15 @@ Keep tone professional, encouraging, and medically grounded.`;
       });
     }
 
-    // Rate Limiting Enforcement
-    const now = Date.now();
-    const elapsed = now - lastCallTime;
-    if (elapsed < MIN_CALL_INTERVAL_MS) {
-      await new Promise(resolve => setTimeout(resolve, MIN_CALL_INTERVAL_MS - elapsed));
+    const cacheKey = [persona, cityName, aqi, timeWindow || 'auto', cleanQuery.toLowerCase(), history.length].join('|');
+    if (responseCache.has(cacheKey)) {
+      const cached = responseCache.get(cacheKey);
+      responseCache.delete(cacheKey);
+      responseCache.set(cacheKey, cached);
+      return cached;
     }
-    lastCallTime = Date.now();
+
+    await acquireRateLimitSlot();
 
     const systemInstruction = PERSONA_SYSTEM_PROMPTS[persona] || PERSONA_SYSTEM_PROMPTS.family;
     const prompt = buildContextualPrompt({
@@ -532,6 +712,9 @@ Keep tone professional, encouraging, and medically grounded.`;
       cityName,
       aqi,
       category,
+      pollutants,
+      timeWindow,
+      verdict,
       history
     });
 
@@ -552,7 +735,7 @@ Keep tone professional, encouraging, and medically grounded.`;
     };
 
     try {
-      const response = await fetch(INTERACTIONS_ENDPOINT, {
+      const response = await fetchWithTimeout(INTERACTIONS_ENDPOINT, {
         method: 'POST',
         headers,
         body: JSON.stringify(buildBody(DEFAULT_MODEL))
@@ -560,7 +743,7 @@ Keep tone professional, encouraging, and medically grounded.`;
 
       if (!response.ok) {
         if (response.status === 404 || response.status === 429) {
-          const fallbackRes = await fetch(INTERACTIONS_ENDPOINT, {
+          const fallbackRes = await fetchWithTimeout(INTERACTIONS_ENDPOINT, {
             method: 'POST',
             headers,
             body: JSON.stringify(buildBody(FALLBACK_MODEL))
@@ -568,12 +751,15 @@ Keep tone professional, encouraging, and medically grounded.`;
           if (fallbackRes.ok) {
             const fallbackData = await fallbackRes.json();
             const fallbackText = extractInteractionText(fallbackData);
-            if (fallbackText) return fallbackText;
+            if (fallbackText) {
+              writeCache(cacheKey, fallbackText);
+              return fallbackText;
+            }
           }
         }
 
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData?.error?.message || `API returned status ${response.status}`);
+        throw new Error(redactSecrets(errData?.error?.message || `API returned status ${response.status}`));
       }
 
       const data = await response.json();
@@ -583,9 +769,13 @@ Keep tone professional, encouraging, and medically grounded.`;
         throw new Error('No advice was generated. Falling back to intelligent heuristics.');
       }
 
+      writeCache(cacheKey, text);
       return text;
     } catch (err) {
-      console.warn('Gemini API call failed, activating graceful heuristic fallback:', err.message);
+      const reason = err && err.name === 'AbortError'
+        ? 'Request timed out after 25s'
+        : redactSecrets(err && err.message ? err.message : 'Unknown error');
+      console.warn('Gemini API call failed, activating graceful heuristic fallback:', reason);
       return getIntelligentFallbackResponse({
         userQuery: cleanQuery,
         persona,
@@ -603,6 +793,9 @@ Keep tone professional, encouraging, and medically grounded.`;
     PERSONA_SYSTEM_PROMPTS,
     sanitizeInput,
     stripUnsafeTags,
+    redactSecrets,
+    isPlausibleApiKey,
+    clearCache,
     markdownToHtml,
     buildContextualPrompt,
     extractInteractionText,

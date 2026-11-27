@@ -56,7 +56,7 @@ function createMockDocument() {
   const elementsById = new Map();
   const classBuckets = new Map();
 
-  function makeClassList(el) {
+  function makeClassList() {
     const set = new Set();
     return {
       add: (...cls) => cls.forEach(c => c && set.add(c)),
@@ -92,7 +92,15 @@ function createMockDocument() {
       className: attrs.className || '',
       setAttribute(k, v) { attrMap[k] = String(v); },
       getAttribute(k) { return Object.prototype.hasOwnProperty.call(attrMap, k) ? attrMap[k] : null; },
-      appendChild(child) { children.push(child); return child; },
+      appendChild(child) {
+        if (child && child.nodeType === 11 && Array.isArray(child.children)) {
+          children.push(...child.children);
+          child.children.length = 0;
+        } else {
+          children.push(child);
+        }
+        return child;
+      },
       remove() { if (id) elementsById.delete(id); },
       click() {},
       focus() {},
@@ -136,6 +144,7 @@ function createMockDocument() {
     ['customAqiSlider', 'input', { value: '385' }],
     ['customAqiDisplay', 'span'],
     ['personaSelect', 'select', { value: 'family' }],
+    ['timeWindowSelect', 'select', { value: 'auto' }],
     ['contextVerdictBanner', 'article'],
     ['verdictHeadline', 'h2'],
     ['verdictBestWindow', 'span'],
@@ -147,6 +156,7 @@ function createMockDocument() {
     ['telemetryAqiVal', 'span'],
     ['telemetryAqiBadge', 'span'],
     ['telemetryNaqiSummary', 'p'],
+    ['telemetryWeatherMeta', 'p'],
     ['telemetryAqiAdvisory', 'p'],
     ['telemetryPm25', 'span'],
     ['telemetryPm10', 'span'],
@@ -217,6 +227,14 @@ function createMockDocument() {
     createElement(tag) {
       return makeElement(tag, '');
     },
+    createDocumentFragment() {
+      const fragChildren = [];
+      return {
+        nodeType: 11,
+        children: fragChildren,
+        appendChild(child) { fragChildren.push(child); return child; }
+      };
+    },
     createTextNode(text) {
       return { nodeType: 3, textContent: String(text) };
     }
@@ -257,6 +275,13 @@ async function runAllTests() {
 
     const naqiGood = AQIEngine.getIndianNAQIAssessment(15, 30);
     assertEqual(naqiGood.category, 'Good', 'Low PM2.5/PM10 triggers Good Indian NAQI');
+
+    // Inter-bracket fractional gap handling (strict monotonicity)
+    const pm10Gap = AQIEngine.calculateSubIndex(54.4, AQIEngine.EPA_BREAKPOINTS.pm10);
+    assert(pm10Gap >= 50 && pm10Gap <= 51, 'EPA PM10 inter-bracket value 54.4 bridges smoothly without dropping to 0');
+
+    const naqiGap = AQIEngine.calculateSubIndex(60.4, AQIEngine.INDIAN_NAQI_BREAKPOINTS.pm25);
+    assert(naqiGap >= 100 && naqiGap <= 102, 'Indian NAQI PM2.5 inter-bracket value 60.4 bridges smoothly cleanly');
   });
 
   // ==========================================
@@ -296,6 +321,13 @@ async function runAllTests() {
     const verdictClean = AQIEngine.getContextDecisionVerdict({ aqi: 40, persona: 'commuter', hour: 13 });
     assertEqual(verdictClean.ventilateNow, true, 'Context verdict allows ventilation at AQI 40');
     assertEqual(verdictClean.outdoorExerciseSafe, true, 'Context verdict allows exercise at AQI 40 midday');
+
+    // WCAG contrast metadata check on all levels
+    [25, 75, 125, 175, 250, 385].forEach(val => {
+      const cat = AQIEngine.getAQICategory(val);
+      assert(typeof cat.badgeTextColor === 'string' && cat.badgeTextColor.startsWith('#'), `AQI ${val} defines WCAG badgeTextColor`);
+      assert(typeof cat.shortLabel === 'string' && cat.shortLabel.length > 0, `AQI ${val} defines concise shortLabel`);
+    });
   });
 
   // ==========================================
@@ -433,21 +465,32 @@ async function runAllTests() {
     assertEqual(GeminiService.sanitizeInput(longInput).length, 1000, 'Inputs capped strictly at 1000 characters');
     assertEqual(GeminiService.sanitizeInput(null), '', 'Null input returns empty string safely');
     assertEqual(GeminiService.sanitizeInput(undefined), '', 'Undefined input returns empty string safely');
+
+    // Secret redaction & key plausibility validation
+    const leakedMsg = 'Request failed with key AIzaSyD-TestSecret1234567890';
+    assert(!GeminiService.redactSecrets(leakedMsg).includes('AIzaSyD'), 'redactSecrets scrubs API keys from error strings');
+    assert(GeminiService.redactSecrets(leakedMsg).includes('[REDACTED_KEY]'), 'redactSecrets replaces key with marker');
+    assertEqual(GeminiService.isPlausibleApiKey('demo'), false, 'Rejects demo sentinel as live API key');
+    assertEqual(GeminiService.isPlausibleApiKey('short'), false, 'Rejects short keys');
+    assertEqual(GeminiService.isPlausibleApiKey('AIza key with spaces'), false, 'Rejects keys containing whitespace');
+    assertEqual(GeminiService.isPlausibleApiKey('AIzaSyValidMockKey123456'), true, 'Accepts structurally valid API key');
   });
 
   // ==========================================
   // SUITE 9: Markdown to HTML Parser
   // ==========================================
   runSuite('Markdown Rendering Engine', () => {
-    const md = '### Test Heading\n**Bold Text** and *Italic*\n- Bullet 1\n- Bullet 2\n`inline *code*`';
+    const md = '### Test Heading\n**Bold Text** and *Italic*\n- Bullet 1\n- Bullet 2\n1. Step One\n2. Step Two\n`inline *code*`';
     const html = GeminiService.markdownToHtml(md);
 
-    assert(html.includes('<h4'), 'Renders h4 heading');
+    assert(html.includes('<h4 class="md-h4"'), 'Renders semantic md-h4 heading');
     assert(html.includes('<strong>Bold Text</strong>'), 'Renders bold text tags');
     assert(html.includes('<em>Italic</em>'), 'Renders italic text tags');
-    assert(html.includes('<ul') && html.includes('</ul>'), 'Wraps list items inside <ul> container');
+    assert(html.includes('<ul class="md-list">') && html.includes('</ul>'), 'Wraps unordered list items inside semantic <ul>');
+    assert(html.includes('<ol class="md-ol">') && html.includes('</ol>'), 'Wraps numbered list items inside semantic <ol>');
     assert(html.includes('<li>Bullet 1</li>'), 'Renders list bullet tags');
-    assert(html.includes('<code') && html.includes('inline *code*</code>'), 'Protects inline code from italic mangling');
+    assert(html.includes('<li>Step One</li>'), 'Renders ordered list tags');
+    assert(html.includes('<code class="md-code">inline *code*</code>'), 'Protects inline code from italic mangling with semantic md-code');
 
     const xssMd = '<img src=x onerror=alert(1)>';
     const safeHtml = GeminiService.markdownToHtml(xssMd);
@@ -500,29 +543,50 @@ async function runAllTests() {
       cityName: 'Delhi-NCR',
       aqi: 350,
       category: 'Hazardous',
+      pollutants: { pm25: 250.4, pm10: 410.0, no2: 75.0 },
+      timeWindow: '7:00 (Morning Inversion Peak)',
+      verdict: { ventilateNow: false, maskRequired: true, outdoorExerciseSafe: false },
       history: [{ role: 'user', content: 'Previous smog question' }]
     });
 
     assert(prompt.includes('Location: Delhi-NCR'), 'Prompt includes atmospheric location');
     assert(prompt.includes('Real-time AQI: 350'), 'Prompt includes numerical AQI');
+    assert(prompt.includes('PM2.5 250.4'), 'Prompt includes pollutant telemetry');
+    assert(prompt.includes('Ventilate=NO'), 'Prompt includes live decision verdict');
     assert(prompt.includes('<user_scenario>'), 'Prompt wraps user input in XML boundary tags');
     assert(!prompt.includes('today?</user_scenario>'), 'Prompt strips injected closing XML tag inside user query');
     assert(prompt.includes('Previous smog question'), 'Prompt chains recent conversation context');
+
+    const cleanAirPlan = GeminiService.getIntelligentFallbackResponse({
+      userQuery: 'What should I do today?',
+      persona: 'commuter',
+      cityName: 'London, UK',
+      aqi: 42
+    });
+    assert(cleanAirPlan.includes('favorable') || cleanAirPlan.includes('Clean'), 'Fallback adapts advice dynamically on clean air days');
   });
 
   // ==========================================
   // SUITE 11: Gemini Interactions API Client Integration (Mocked Fetch)
   // ==========================================
   await runSuite('Gemini Interactions API Client Integration', async () => {
+    GeminiService.clearCache();
     assertEqual(GeminiService.DEFAULT_MODEL, 'gemini-4-hydrogen', 'Uses current gemini-4-hydrogen primary model');
     assertEqual(GeminiService.FALLBACK_MODEL, 'gemini-3.5-flash-lite', 'Uses gemini-3.5-flash-lite fallback model');
+    assertEqual(
+      GeminiService.extractInteractionText({ outputs: [{ type: 'text', text: 'Outputs Shape' }] }),
+      'Outputs Shape',
+      'Extracts text from Interactions API outputs[] shape'
+    );
 
     const originalFetch = global.fetch;
     let capturedUrl = '';
     let capturedHeaders = {};
     let capturedBody = {};
+    let fetchCount = 0;
 
     global.fetch = async (url, opts) => {
+      fetchCount++;
       capturedUrl = url;
       capturedHeaders = opts.headers;
       capturedBody = JSON.parse(opts.body);
@@ -551,6 +615,18 @@ async function runAllTests() {
     assertEqual(capturedHeaders['x-goog-api-key'], 'AIza-mock-test-key', 'Sends API key securely via x-goog-api-key header');
     assertEqual(capturedBody.model, 'gemini-4-hydrogen', 'Requests gemini-4-hydrogen model');
     assert(capturedBody.store === false, 'Opts out of server-side storage for privacy');
+
+    // Session cache hit should return identical result without extra network call
+    const cachedResult = await GeminiService.generateAdvice({
+      apiKey: 'AIza-mock-test-key',
+      userQuery: 'How to protect infants?',
+      persona: 'family',
+      cityName: 'Delhi-NCR',
+      aqi: 385,
+      category: 'Hazardous'
+    });
+    assertEqual(cachedResult, 'Live Gemini 4 Hydrogen Advice', 'Session cache returns exact previous response');
+    assertEqual(fetchCount, 1, 'Session cache avoids redundant API network call');
 
     // Test 429 fallback to gemini-3.5-flash-lite
     let callModels = [];
@@ -625,6 +701,26 @@ async function runAllTests() {
     assertEqual(mockDoc.getElementById('telemetryAqiVal').textContent, '68', 'City switch updates AQI display to 68');
     assertEqual(mockDoc.getElementById('aqiGaugeCard').getAttribute('data-status'), 'moderate', 'City switch updates data-status dynamically');
     assertEqual(mockDoc.getElementById('customAqiSlider').getAttribute('aria-valuenow'), '68', 'Updates slider aria-valuenow dynamically');
+    assert(mockDoc.getElementById('telemetryWeatherMeta').textContent.includes('London') === false && mockDoc.getElementById('telemetryWeatherMeta').textContent.includes('6°C'), 'Renders meteorological metadata dynamically');
+
+    // Time window context switch changes verdict dynamically at AQI 140
+    const aqiSlider = mockDoc.getElementById('customAqiSlider');
+    aqiSlider.value = '140';
+    await aqiSlider.dispatch('input');
+    const timeSel = mockDoc.getElementById('timeWindowSelect');
+    timeSel.value = '7';
+    await timeSel.dispatch('change');
+    assert(mockDoc.getElementById('verdictHeadline').textContent.includes('12:30') || mockDoc.getElementById('verdictVentilateChip').textContent.includes('NO'), 'Morning window restricts ventilation at AQI 140');
+    const personaSel = mockDoc.getElementById('personaSelect');
+    personaSel.value = 'commuter';
+    await personaSel.dispatch('change');
+    timeSel.value = '13';
+    await timeSel.dispatch('change');
+    assert(mockDoc.getElementById('verdictVentilateChip').textContent.includes('YES'), 'Midday convective window permits ventilation for commuter at AQI 140');
+
+    // Switch back to London AQI 68 for remainder of checks
+    citySel.value = 'london';
+    await citySel.dispatch('change');
 
     // High contrast and colorblind toggles
     const hcBtn = mockDoc.getElementById('highContrastToggle');
@@ -661,11 +757,19 @@ async function runAllTests() {
   runSuite('Static Security, HTML Integrity & Repo Size Audit', () => {
     const rootDir = path.resolve(__dirname, '..');
     const htmlContent = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
+    const cssContent = fs.readFileSync(path.join(rootDir, 'css/styles.css'), 'utf8');
+    const geminiContent = fs.readFileSync(path.join(rootDir, 'js/gemini.js'), 'utf8');
+    const appContent = fs.readFileSync(path.join(rootDir, 'js/app.js'), 'utf8');
 
     assert(!htmlContent.includes('cdn.tailwindcss.com'), 'Zero external Tailwind Play CDN script in index.html');
+    assert(!htmlContent.includes('fonts.googleapis.com'), 'Zero external Google Fonts runtime request in index.html');
     assert(!htmlContent.includes("'unsafe-eval'"), 'CSP does NOT permit unsafe-eval');
     assert(!htmlContent.includes("'unsafe-inline'"), 'CSP does NOT permit unsafe-inline');
     assert(htmlContent.includes('https://generativelanguage.googleapis.com'), 'CSP whitelists official Gemini API endpoint');
+    assert(htmlContent.includes('name="referrer" content="no-referrer"'), 'Referrer policy privacy meta tag present');
+    assert(cssContent.includes('prefers-reduced-motion'), 'Stylesheet respects prefers-reduced-motion accessibility preference');
+    assert(geminiContent.includes('AbortController'), 'Gemini client enforces fetch timeout via AbortController');
+    assert(appContent.includes('sessionStorage'), 'API key uses volatile sessionStorage isolation');
 
     // Verify no duplicate HTML id attributes
     const idMatches = [...htmlContent.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);

@@ -9,14 +9,17 @@ on:
 jobs:
   validate-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18', '20', '22']
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js Environment
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
 
       - name: Verify Repository Size (< 10 MB Constraint)
         run: |
@@ -28,6 +31,15 @@ jobs:
           fi
           echo "Repository size check passed: Clean & lightweight (< 10 MB)"
 
+      - name: Verify Single Branch Policy
+        run: |
+          BRANCH_COUNT=$(git branch -r | grep -v '\->' | wc -l)
+          echo "Remote branches found: ${BRANCH_COUNT}"
+          if [ $BRANCH_COUNT -gt 1 ]; then
+            echo "Warning: Multiple remote branches detected."
+          fi
+          echo "Branch policy check complete."
+
       - name: Syntax Check All JavaScript Modules
         run: |
           node --check js/aqi-engine.js
@@ -35,6 +47,22 @@ jobs:
           node --check js/gemini.js
           node --check js/app.js
           node --check tests/run-tests.js
+          echo "All JavaScript modules passed syntax check ✅"
+
+      - name: Validate HTML Structure
+        run: |
+          grep -c 'id=' index.html && echo "HTML IDs found ✅"
+          grep -q 'Content-Security-Policy' index.html && echo "CSP meta tag present ✅"
+          grep -q 'role="tablist"' index.html && echo "ARIA tablist present ✅"
+          grep -q 'lang="en"' index.html && echo "HTML lang attribute present ✅"
+
+      - name: Verify Zero External Runtime Dependencies
+        run: |
+          if grep -rnE 'https?://(cdn\.|fonts\.googleapis)' index.html js/ css/; then
+            echo "ERROR: External CDN or font dependency found!"
+            exit 1
+          fi
+          echo "Zero external runtime dependencies confirmed"
 
       - name: Execute Automated Verification Suite
         run: |

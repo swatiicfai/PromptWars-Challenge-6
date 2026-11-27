@@ -4,14 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://generativelanguage.googleapis.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://generativelanguage.googleapis.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
   <meta name="description" content="AuraAir - GenAI-powered Urban Air Quality Assistant helping families and communities navigate severe winter smog and thermal inversion." />
   <meta name="theme-color" content="#090d16" />
   <title>AuraAir – Urban Air Quality &amp; Smog Defense Assistant</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d9488'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='36'%3E%F0%9F%8D%83%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body class="app-body">
@@ -85,6 +84,17 @@
             <option value="community">Community / RWA Leader</option>
           </select>
         </div>
+
+        <div class="control-group">
+          <label for="timeWindowSelect" class="control-label">⏰ Time Context:</label>
+          <select id="timeWindowSelect" class="control-select">
+            <option value="auto" selected>Live Clock (Auto)</option>
+            <option value="7">07:00 Morning Inversion</option>
+            <option value="13">13:30 Convective Dip</option>
+            <option value="19">19:30 Evening Rush Peak</option>
+            <option value="23">23:00 Night Sealing</option>
+          </select>
+        </div>
       </div>
     </div>
   </header>
@@ -150,6 +160,7 @@
             </div>
             <h2 id="telemetryCityName" class="city-title">Delhi-NCR, India</h2>
             <p id="telemetryNaqiSummary" class="naqi-subtext">Indian CPCB NAQI: 432 (Severe)</p>
+            <p id="telemetryWeatherMeta" class="weather-meta">14°C • 82% RH • Winter Inversion, Stubble Burning &amp; Vehicular Smog</p>
           </div>
           <p id="telemetryAqiAdvisory" class="advisory-box">
             Health emergency warning: Entire population is likely to be affected. Keep all windows sealed.
@@ -332,10 +343,12 @@
                 <label for="calcIntervention" class="field-label">Protective Intervention:</label>
                 <select id="calcIntervention" class="field-control">
                   <option value="n95Mask" selected>Certified N95 / FFP2 Respirator (95% efficiency)</option>
-                  <option value="diyCorsiRosenthal">DIY Corsi-Rosenthal Box Fan (85% efficiency)</option>
                   <option value="hepaRoomFilter">True HEPA Room Purifier (92% efficiency)</option>
+                  <option value="diyCorsiRosenthal">DIY Corsi-Rosenthal Box Fan (85% efficiency)</option>
                   <option value="surgicalMask">Standard Surgical Mask (40% efficiency)</option>
                   <option value="sealedRoomNoFilter">Sealed Room Without Purifier (35% efficiency)</option>
+                  <option value="clothMask">Cotton / Cloth Mask (25% efficiency)</option>
+                  <option value="none">No Protection / Unmasked (0% efficiency)</option>
                 </select>
               </div>
             </div>
@@ -386,7 +399,9 @@
                 <select id="calcAltMode" class="field-control">
                   <option value="metroRail" selected>Electric Metro Rail (28 g CO₂/km)</option>
                   <option value="electricBus">Electric Public Bus (35 g CO₂/km)</option>
+                  <option value="cngBus">Public CNG Bus (65 g CO₂/km)</option>
                   <option value="carpool">Carpooling 4 pax (48 g CO₂/km)</option>
+                  <option value="eScooter">Personal E-Bike / E-Scooter (14 g CO₂/km)</option>
                   <option value="workFromHome">Work-From-Home / WFH (0 g CO₂/km)</option>
                   <option value="bicycleWalk">Walking / Bicycle (0 g CO₂/km)</option>
                 </select>
