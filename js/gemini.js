@@ -100,35 +100,41 @@ Guidance rules:
 
   /**
    * Strips unsafe HTML/script constructs, pseudo-protocols, inline event handlers,
-   * and prompt-injection XML boundary tags before sending text to the AI API.
+   * and prompt-injection XML boundary tags using fixed-point iteration to defeat nested bypasses.
    *
    * @param {string} input - Raw user input
    * @returns {string} Clean plain text bounded to 1000 chars
    */
   function stripUnsafeTags(input) {
     if (typeof input !== 'string') return '';
-    return input
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-      .replace(/<\/?(?:user_scenario|system|instructions?|prompt|assistant)\b[^>]*>/gi, '')
-      .replace(/<[^>]*>/g, '')
-      .replace(/javascript\s*:/gi, '')
-      .replace(/vbscript\s*:/gi, '')
-      .replace(/data\s*:\s*text\/html/gi, '')
-      .replace(/\bon\w+\s*=/gi, '')
-      .slice(0, 1000)
-      .trim();
+    let out = input;
+    for (let pass = 0; pass < 5; pass++) {
+      const prev = out;
+      out = out
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+        .replace(/<\/?(?:user_scenario|system|instructions?|prompt|assistant)\b[^>]*>/gi, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/javascript\s*:/gi, '')
+        .replace(/vbscript\s*:/gi, '')
+        .replace(/data\s*:\s*text\/html/gi, '')
+        .replace(/\bon\w+\s*=/gi, '');
+      if (out === prev) break;
+    }
+    return out.slice(0, 1000).trim();
   }
 
   /**
-   * Redacts potential API key tokens from strings before logging or display.
+   * Redacts potential API key or bearer tokens from strings before logging or display.
    *
    * @param {string} text - Raw text or error message
    * @returns {string} Redacted string safe for logs
    */
   function redactSecrets(text) {
     if (typeof text !== 'string') return '';
-    return text.replace(/AIza[0-9A-Za-z_-]{10,}/g, '[REDACTED_KEY]');
+    return text
+      .replace(/(?:AIza|ya29\.|AQ\.)[0-9A-Za-z_.-]{10,}/g, '[REDACTED_KEY]')
+      .replace(/Bearer\s+[0-9A-Za-z_.-]{12,}/gi, 'Bearer [REDACTED_KEY]');
   }
 
   /**
@@ -695,7 +701,13 @@ Keep tone professional, encouraging, and medically grounded.`;
       });
     }
 
-    const cacheKey = [persona, cityName, aqi, timeWindow || 'auto', cleanQuery.toLowerCase(), history.length].join('|');
+    const historyFingerprint = Array.isArray(history) && history.length > 0
+      ? history
+          .slice(-4)
+          .map(turn => `${turn && turn.role === 'user' ? 'u' : 'a'}:${stripUnsafeTags(String((turn && turn.content) || '')).slice(0, 60)}`)
+          .join('~')
+      : '';
+    const cacheKey = [persona, cityName, aqi, timeWindow || 'auto', cleanQuery.toLowerCase(), historyFingerprint].join('|');
     if (responseCache.has(cacheKey)) {
       const cached = responseCache.get(cacheKey);
       responseCache.delete(cacheKey);
@@ -724,7 +736,8 @@ Keep tone professional, encouraging, and medically grounded.`;
       system_instruction: systemInstruction,
       store: false,
       generation_config: {
-        max_output_tokens: 4096
+        max_output_tokens: 32768,
+        thinking_level: 'low'
       }
     });
 

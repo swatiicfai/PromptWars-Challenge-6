@@ -22,6 +22,14 @@
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (AQIEngine, ImpactCalculator, GeminiService) {
 
+  const MAX_CHAT_HISTORY = 50;
+
+  /**
+   * Builds a safe storage wrapper guarding against sandboxed or unavailable Storage APIs.
+   *
+   * @param {Function} storageProviderGetter - Lazy accessor returning localStorage/sessionStorage or null
+   * @returns {Object} Safe get/set/remove adapter
+   */
   function createStorageAdapter(storageProviderGetter) {
     return {
       get(key) {
@@ -64,8 +72,12 @@
     typeof sessionStorage !== 'undefined' ? sessionStorage : null
   );
 
+  /**
+   * Creates a clean default application state, purging any legacy localStorage API keys.
+   *
+   * @returns {Object} Initial reactive application state
+   */
   function createInitialState() {
-    // Purge any legacy persistent API key from localStorage for defense-in-depth
     safeStorage.remove('auraair_gemini_key');
 
     return {
@@ -97,18 +109,35 @@
   let toastTimer = null;
   let pendingRenderRaf = null;
 
+  /**
+   * Returns the active city meteorological profile with safe fallback to Delhi-NCR.
+   *
+   * @returns {Object} City atmospheric profile
+   */
   function getActiveCity() {
     return AQIEngine.PRESET_CITIES[state.selectedCity] || AQIEngine.PRESET_CITIES['delhi-ncr'];
   }
 
+  /**
+   * Formats a human-readable diurnal inversion window label for prompt and export context.
+   *
+   * @param {number|null} hourOverride - Selected hour (0-23) or null for live clock
+   * @returns {string} Descriptive diurnal window label
+   */
   function getTimeWindowLabel(hourOverride) {
     const h = Number.isInteger(hourOverride) ? hourOverride : new Date().getHours();
-    if (h >= 12 && h <= 15) return `${h}:00 (Midday Convective Dip)`;
-    if (h >= 6 && h <= 9) return `${h}:00 (Morning Inversion Peak)`;
-    if (h >= 19 && h <= 23) return `${h}:00 (Evening / Night Inversion)`;
-    return `${h}:00 (Transition Window)`;
+    const padded = `${h.toString().padStart(2, '0')}:00`;
+    if (h >= 12 && h <= 15) return `${padded} (Midday Convective Dip)`;
+    if (h >= 6 && h <= 9) return `${padded} (Morning Inversion Peak)`;
+    if (h >= 19 && h <= 23) return `${padded} (Evening / Night Inversion)`;
+    return `${padded} (Transition Window)`;
   }
 
+  /**
+   * Caches DOM element references into module state for fast batched updates.
+   *
+   * @param {Document} doc - Target document (real or test mock)
+   */
   function initDomElements(doc) {
     const d = doc || document;
     dom = {
@@ -199,12 +228,22 @@
     };
   }
 
+  /**
+   * Publishes a polite ARIA live-region announcement for assistive technologies.
+   *
+   * @param {string} message - Screen reader announcement string
+   */
   function announceToScreenReader(message) {
     if (dom.screenReaderLive) {
       dom.screenReaderLive.textContent = message;
     }
   }
 
+  /**
+   * Displays an accessible floating status toast and notifies screen readers.
+   *
+   * @param {string} message - Toast text
+   */
   function showToast(message) {
     announceToScreenReader(message);
     if (!dom.statusToast) return;
@@ -216,6 +255,9 @@
     }, 3500);
   }
 
+  /**
+   * Synchronizes the top status pill between Intelligent Demo Mode and Live Cloud AI.
+   */
   function updateApiStatus() {
     if (!dom.apiStatusBadge) return;
     if (!GeminiService.isPlausibleApiKey(state.apiKey)) {
@@ -227,6 +269,14 @@
     }
   }
 
+  /**
+   * Updates an accessible progress bar width and ARIA value attribute.
+   *
+   * @param {HTMLElement|null} barEl - Fill element
+   * @param {HTMLElement|null} progressEl - ARIA progressbar container
+   * @param {number} value - Current pollutant value
+   * @param {number} maxVal - Reference upper scale
+   */
   function updatePollutantMeter(barEl, progressEl, value, maxVal) {
     const pct = Math.min(100, Math.max(4, Math.round((value / maxVal) * 100)));
     if (barEl && barEl.style) {
@@ -237,6 +287,14 @@
     }
   }
 
+  /**
+   * Renders the Live Context Decision Banner from current AQI, persona, and time window.
+   *
+   * @param {number} aqi - Current AQI
+   * @param {string} persona - User persona key
+   * @param {number|null} [hourOverride=state.selectedHour] - Selected hour override
+   * @returns {Object} Computed decision verdict object
+   */
   function renderContextVerdict(aqi, persona, hourOverride = state.selectedHour) {
     const hourArg = Number.isInteger(hourOverride) ? hourOverride : undefined;
     const verdict = AQIEngine.getContextDecisionVerdict({ aqi, persona, hour: hourArg });
@@ -265,6 +323,73 @@
     return verdict;
   }
 
+  /**
+   * Synchronizes the Time Context selector to display any hour clicked in the 24h forecast grid.
+   *
+   * @param {number|null} hour - Hour (0-23) or null for Live Clock Auto
+   */
+  function syncTimeWindowControl(hour) {
+    if (!dom.timeWindowSelect) return;
+    if (!Number.isInteger(hour)) {
+      dom.timeWindowSelect.value = 'auto';
+      return;
+    }
+    const presetValues = ['7', '13', '19', '23'];
+    const strHour = String(hour);
+    if (presetValues.includes(strHour)) {
+      dom.timeWindowSelect.value = strHour;
+      return;
+    }
+
+    const d = dom.doc || document;
+    if (!dom.customHourOption && typeof d.createElement === 'function') {
+      const opt = d.createElement('option');
+      opt.id = 'customHourOption';
+      dom.customHourOption = opt;
+      dom.timeWindowSelect.appendChild(opt);
+    }
+    if (dom.customHourOption) {
+      dom.customHourOption.value = strHour;
+      dom.customHourOption.textContent = `${hour.toString().padStart(2, '0')}:00 Selected Slot`;
+      dom.timeWindowSelect.value = strHour;
+    }
+  }
+
+  /**
+   * Highlights the active selected hour in the 24-hour forecast grid.
+   */
+  function syncForecastSlotHighlight() {
+    if (!dom.hourlyForecastGrid || !dom.hourlyForecastGrid.children) return;
+    const slots = Array.from(dom.hourlyForecastGrid.children);
+    slots.forEach(slotEl => {
+      const slotHour = Number.parseInt(slotEl.getAttribute('data-hour'), 10);
+      const isSelected = Number.isInteger(state.selectedHour) && slotHour === state.selectedHour;
+      slotEl.classList.toggle('forecast-slot-active', isSelected);
+      slotEl.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    });
+  }
+
+  /**
+   * Selects or clears an hourly context preview slot from the 24-hour forecast grid.
+   *
+   * @param {number} hour - Clicked forecast hour (0-23)
+   */
+  function selectContextHour(hour) {
+    const toggledHour = state.selectedHour === hour ? null : hour;
+    state.selectedHour = toggledHour;
+    syncTimeWindowControl(toggledHour);
+    renderContextVerdict(state.customAQI, state.selectedPersona, state.selectedHour);
+    syncForecastSlotHighlight();
+    announceToScreenReader(
+      Number.isInteger(toggledHour)
+        ? `Previewing decision verdict for ${getTimeWindowLabel(toggledHour)}`
+        : 'Restored live clock context window'
+    );
+  }
+
+  /**
+   * Renders all dashboard telemetry cards, pollutants, forecast grid, routines, and calculators.
+   */
   function renderDashboard() {
     const city = getActiveCity();
     const aqi = state.customAQI;
@@ -272,6 +397,7 @@
     const pollutants = AQIEngine.estimatePollutantsFromAQI(aqi, city);
     const naqi = AQIEngine.getIndianNAQIAssessment(pollutants.pm25, pollutants.pm10);
     const inversionRisk = AQIEngine.getInversionRiskTier(aqi);
+    const readableColor = cat.displayColor || cat.color;
 
     if (dom.aqiGaugeCard) {
       dom.aqiGaugeCard.setAttribute('data-status', cat.statusKey);
@@ -279,7 +405,7 @@
     if (dom.telemetryCityName) dom.telemetryCityName.textContent = city.name;
     if (dom.telemetryAqiVal) {
       dom.telemetryAqiVal.textContent = String(aqi);
-      if (dom.telemetryAqiVal.style) dom.telemetryAqiVal.style.color = cat.color;
+      if (dom.telemetryAqiVal.style) dom.telemetryAqiVal.style.color = readableColor;
     }
     if (dom.telemetryAqiBadge) {
       dom.telemetryAqiBadge.textContent = `${cat.badge} ${cat.category}`;
@@ -314,12 +440,17 @@
     if (state.lastForecastAqi !== aqi) {
       renderHourlyForecast(aqi);
       state.lastForecastAqi = aqi;
+    } else {
+      syncForecastSlotHighlight();
     }
     renderRoutineTab(state.selectedPersona, aqi);
     calculateInhalation();
     calculateCarbon();
   }
 
+  /**
+   * Batches rapid range-slider updates onto animation frames to prevent layout thrashing.
+   */
   function scheduleDashboardRender() {
     if (typeof requestAnimationFrame !== 'function') {
       renderDashboard();
@@ -332,6 +463,11 @@
     });
   }
 
+  /**
+   * Renders the 24-hour winter thermal inversion forecast using interactive accessible buttons.
+   *
+   * @param {number} baseAqi - Baseline AQI used to project hourly inversion dynamics
+   */
   function renderHourlyForecast(baseAqi) {
     if (!dom.hourlyForecastGrid) return;
     const d = dom.doc || document;
@@ -344,13 +480,19 @@
       const cat = AQIEngine.getAQICategory(slot.aqi);
       const isOptimal = slot.windowType === 'optimal-ventilation';
       const isHazard = slot.windowType === 'peak-hazard';
+      const isSelected = Number.isInteger(state.selectedHour) && state.selectedHour === slot.hour;
 
-      const card = d.createElement('div');
+      const card = d.createElement('button');
+      card.type = 'button';
       card.className = `forecast-slot ${
         isOptimal ? 'forecast-slot-optimal' : isHazard ? 'forecast-slot-hazard' : ''
-      }`;
+      } ${isSelected ? 'forecast-slot-active' : ''}`.trim();
       card.setAttribute('data-status', cat.statusKey);
+      card.setAttribute('data-hour', String(slot.hour));
+      card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+      card.setAttribute('aria-label', `${slot.timeLabel}: AQI ${slot.aqi}, ${cat.category}. ${slot.recommendation}`);
       card.setAttribute('title', `${slot.timeLabel}: AQI ${slot.aqi} — ${slot.recommendation}`);
+      card.addEventListener('click', () => selectContextHour(slot.hour));
 
       const timeEl = d.createElement('div');
       timeEl.className = 'forecast-time';
@@ -359,7 +501,7 @@
       const valEl = d.createElement('div');
       valEl.className = 'forecast-aqi';
       valEl.textContent = String(slot.aqi);
-      if (valEl.style) valEl.style.color = cat.color;
+      if (valEl.style) valEl.style.color = cat.displayColor || cat.color;
 
       const tagEl = d.createElement('div');
       tagEl.className = `forecast-tag ${isOptimal ? 'forecast-tag-optimal' : ''}`;
@@ -376,6 +518,12 @@
     }
   }
 
+  /**
+   * Populates the Personalized Routine tab for the selected persona and active AQI tier.
+   *
+   * @param {string} persona - Selected persona key
+   * @param {number} aqi - Current AQI
+   */
   function renderRoutineTab(persona, aqi) {
     const routine = AQIEngine.getPersonalizedRoutine(persona, aqi);
 
@@ -388,6 +536,9 @@
     if (dom.routineNight) dom.routineNight.textContent = routine.nightRoutine;
   }
 
+  /**
+   * Builds and inserts the 5 curated DIY Indoor Air Quality (IAQ) blueprint cards safely via DOM nodes.
+   */
   function renderIaqHacks() {
     if (!dom.hacksContainer) return;
     const d = dom.doc || document;
@@ -481,6 +632,11 @@
     }
   }
 
+  /**
+   * Computes and displays avoided PM2.5 inhalation dose and cigarette equivalence metrics.
+   *
+   * @returns {Object} Calculated inhalation impact summary
+   */
   function calculateInhalation() {
     const city = getActiveCity();
     const pollutants = AQIEngine.estimatePollutantsFromAQI(state.customAQI, city);
@@ -504,6 +660,11 @@
     return res;
   }
 
+  /**
+   * Computes and displays daily/annual CO2e savings and urban tree equivalents.
+   *
+   * @returns {Object} Calculated commute carbon impact summary
+   */
   function calculateCarbon() {
     const distance = dom.calcDistance ? Number(dom.calcDistance.value) : 15;
     const baseline = dom.calcBaselineMode ? dom.calcBaselineMode.value : 'petrolCar';
@@ -523,6 +684,11 @@
     return res;
   }
 
+  /**
+   * Recalculates and renders the Community Clean Air Score (0-100) from active household habits.
+   *
+   * @returns {Object} Score, tier, badge, and summary
+   */
   function updateCommunityScore() {
     const actions = {};
     if (dom.actionCheckboxes) {
@@ -540,6 +706,13 @@
     return res;
   }
 
+  /**
+   * Appends a chat message bubble safely to the chat log and bounds in-memory history.
+   *
+   * @param {string} role - 'user' or 'assistant'
+   * @param {string} content - Message text or markdown
+   * @param {boolean} [isMarkdown=false] - Whether to render escaped Markdown for assistant output
+   */
   function appendChatMessage(role, content, isMarkdown = false) {
     if (!dom.chatMessagesContainer) return;
     const d = dom.doc || document;
@@ -563,8 +736,16 @@
     dom.chatMessagesContainer.scrollTop = dom.chatMessagesContainer.scrollHeight;
 
     state.chatHistory.push({ role, content, timestamp: new Date().toISOString() });
+    if (state.chatHistory.length > MAX_CHAT_HISTORY) {
+      state.chatHistory.splice(0, state.chatHistory.length - MAX_CHAT_HISTORY);
+    }
   }
 
+  /**
+   * Inserts a temporary typing indicator while waiting for Gemini Interactions API response.
+   *
+   * @returns {string|null} Temporary DOM element ID
+   */
   function appendLoadingMessage() {
     if (!dom.chatMessagesContainer) return null;
     const d = dom.doc || document;
@@ -583,6 +764,11 @@
     return id;
   }
 
+  /**
+   * Removes a temporary loading bubble by element ID.
+   *
+   * @param {string|null} id - DOM element ID returned by appendLoadingMessage
+   */
   function removeLoadingMessage(id) {
     if (!id) return;
     const d = dom.doc || document;
@@ -590,6 +776,12 @@
     if (el) el.remove();
   }
 
+  /**
+   * Handles chat form submission or quick-prompt clicks with live atmospheric context chaining.
+   *
+   * @param {string} [customPrompt] - Optional suggested prompt string
+   * @returns {Promise<void>}
+   */
   async function handleSendMessage(customPrompt) {
     if (state.isGenerating) return;
     const query = customPrompt || (dom.chatInput ? dom.chatInput.value.trim() : '');
@@ -652,6 +844,11 @@
     }
   }
 
+  /**
+   * Builds a printable plain-text daily action plan incorporating active context and routine.
+   *
+   * @returns {string} Formatted action plan document
+   */
   function buildActionPlanText() {
     const city = getActiveCity();
     const aqi = state.customAQI;
@@ -690,6 +887,11 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
 =====================================================`;
   }
 
+  /**
+   * Triggers browser download of the generated `.txt` daily action plan with safe Blob cleanup.
+   *
+   * @returns {string} Exported action plan string
+   */
   function exportDailyPlan() {
     const planText = buildActionPlanText();
     if (typeof Blob === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) {
@@ -702,11 +904,20 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
     link.href = url;
     link.download = `AuraAir-Action-Plan-${state.selectedCity}-${Date.now()}.txt`;
     link.click();
-    URL.revokeObjectURL(url);
+    if (typeof setTimeout === 'function' && typeof URL.revokeObjectURL === 'function') {
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } else if (typeof URL.revokeObjectURL === 'function') {
+      URL.revokeObjectURL(url);
+    }
     showToast('Daily action plan downloaded.');
     return planText;
   }
 
+  /**
+   * Switches active visible module panel while updating WAI-ARIA tab selection attributes.
+   *
+   * @param {string} targetId - Panel element ID (e.g. 'tab-dashboard')
+   */
   function switchTab(targetId) {
     if (!dom.tabBtns || !dom.tabPanels) return;
     state.activeTab = targetId;
@@ -728,6 +939,9 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
     });
   }
 
+  /**
+   * Wires click and WAI-ARIA keyboard navigation (`ArrowLeft`/`ArrowRight`/`Home`/`End`) on tabs.
+   */
   function setupTabs() {
     if (!dom.tabBtns || dom.tabBtns.length === 0) return;
     const tabs = Array.from(dom.tabBtns);
@@ -754,7 +968,10 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
     });
   }
 
-  function setupEventListeners() {
+  /**
+   * Binds API key save/demo controls using volatile sessionStorage isolation.
+   */
+  function setupApiKeyListeners() {
     if (dom.saveApiKeyBtn && dom.apiKeyInput) {
       dom.saveApiKeyBtn.addEventListener('click', () => {
         const val = dom.apiKeyInput.value.trim();
@@ -786,7 +1003,12 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
         showToast('Reset to Intelligent Demo Mode.');
       });
     }
+  }
 
+  /**
+   * Binds High Contrast AAA mode, Colorblind pattern mode, and Escape toast dismissal.
+   */
+  function setupAccessibilityListeners() {
     if (dom.highContrastToggle) {
       dom.highContrastToggle.addEventListener('click', () => {
         state.highContrast = !state.highContrast;
@@ -807,6 +1029,20 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
       });
     }
 
+    const d = dom.doc || (typeof document !== 'undefined' ? document : null);
+    if (d && typeof d.addEventListener === 'function') {
+      d.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && dom.statusToast && !dom.statusToast.classList.contains('hidden')) {
+          dom.statusToast.classList.add('hidden');
+        }
+      });
+    }
+  }
+
+  /**
+   * Binds city hotspot, AQI slider, persona selector, and time-window context controls.
+   */
+  function setupContextListeners() {
     if (dom.citySelect) {
       dom.citySelect.addEventListener('change', e => {
         state.selectedCity = e.target.value;
@@ -845,16 +1081,12 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
         announceToScreenReader(`Context time window updated: ${getTimeWindowLabel(state.selectedHour)}`);
       });
     }
+  }
 
-    const d = dom.doc || (typeof document !== 'undefined' ? document : null);
-    if (d && typeof d.addEventListener === 'function') {
-      d.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && dom.statusToast && !dom.statusToast.classList.contains('hidden')) {
-          dom.statusToast.classList.add('hidden');
-        }
-      });
-    }
-
+  /**
+   * Binds inhalation dose calculator, commute carbon calculator, and community checklist events.
+   */
+  function setupCalculatorListeners() {
     if (dom.calcActivity) dom.calcActivity.addEventListener('change', calculateInhalation);
     if (dom.calcDuration) dom.calcDuration.addEventListener('input', calculateInhalation);
     if (dom.calcIntervention) dom.calcIntervention.addEventListener('change', calculateInhalation);
@@ -868,7 +1100,12 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
         cb.addEventListener('change', updateCommunityScore);
       });
     }
+  }
 
+  /**
+   * Binds GenAI chat submission, suggested prompts, clear button, and plan export button.
+   */
+  function setupChatAndExportListeners() {
     if (dom.chatForm) {
       dom.chatForm.addEventListener('submit', e => {
         e.preventDefault();
@@ -899,11 +1136,40 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
     }
   }
 
+  /**
+   * Registers all interactive UI event listeners cleanly via focused sub-binders.
+   */
+  function setupEventListeners() {
+    setupApiKeyListeners();
+    setupAccessibilityListeners();
+    setupContextListeners();
+    setupCalculatorListeners();
+    setupChatAndExportListeners();
+  }
+
+  /**
+   * Synchronizes form inputs and select controls with initial JS state on startup.
+   */
+  function syncFormControlsWithState() {
+    if (dom.citySelect) dom.citySelect.value = state.selectedCity;
+    if (dom.customAqiSlider) dom.customAqiSlider.value = String(state.customAQI);
+    if (dom.customAqiDisplay) dom.customAqiDisplay.textContent = String(state.customAQI);
+    if (dom.personaSelect) dom.personaSelect.value = state.selectedPersona;
+    if (dom.timeWindowSelect) dom.timeWindowSelect.value = 'auto';
+    if (state.apiKey && dom.apiKeyInput) dom.apiKeyInput.value = state.apiKey;
+  }
+
+  /**
+   * Initializes the AuraAir application controller for a given Document context.
+   *
+   * @param {Document} [doc] - Target document (defaults to global document)
+   */
   function initApp(doc) {
     state = createInitialState();
     initDomElements(doc);
     setupTabs();
     setupEventListeners();
+    syncFormControlsWithState();
 
     if (state.highContrast && dom.body) {
       dom.body.classList.add('high-contrast');
@@ -912,9 +1178,6 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
     if (state.colorblindMode && dom.body) {
       dom.body.classList.add('colorblind-mode');
       if (dom.colorblindToggle) dom.colorblindToggle.setAttribute('aria-pressed', 'true');
-    }
-    if (state.apiKey && dom.apiKeyInput) {
-      dom.apiKeyInput.value = state.apiKey;
     }
 
     updateApiStatus();
@@ -941,6 +1204,7 @@ Powered by Gemini 4 Hydrogen • Pure HTML/CSS/JS
     updateApiStatus,
     renderDashboard,
     renderHourlyForecast,
+    selectContextHour,
     renderRoutineTab,
     renderIaqHacks,
     calculateInhalation,

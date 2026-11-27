@@ -322,12 +322,41 @@ async function runAllTests() {
     assertEqual(verdictClean.ventilateNow, true, 'Context verdict allows ventilation at AQI 40');
     assertEqual(verdictClean.outdoorExerciseSafe, true, 'Context verdict allows exercise at AQI 40 midday');
 
-    // WCAG contrast metadata check on all levels
+    // WCAG 2.1 AA contrast math helper (>= 4.5:1)
+    const hexToLuminance = (hex) => {
+      const clean = hex.replace('#', '');
+      const rgb = [0, 2, 4].map(i => {
+        const c = parseInt(clean.slice(i, i + 2), 16) / 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      });
+      return (0.2126 * rgb[0]) + (0.7152 * rgb[1]) + (0.0722 * rgb[2]);
+    };
+    const contrastRatio = (a, b) => {
+      const l1 = hexToLuminance(a);
+      const l2 = hexToLuminance(b);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    };
+
+    // WCAG contrast metadata & ratio verification on all 6 levels
     [25, 75, 125, 175, 250, 385].forEach(val => {
       const cat = AQIEngine.getAQICategory(val);
       assert(typeof cat.badgeTextColor === 'string' && cat.badgeTextColor.startsWith('#'), `AQI ${val} defines WCAG badgeTextColor`);
+      assert(typeof cat.displayColor === 'string' && cat.displayColor.startsWith('#'), `AQI ${val} defines dark-surface displayColor`);
       assert(typeof cat.shortLabel === 'string' && cat.shortLabel.length > 0, `AQI ${val} defines concise shortLabel`);
+      assert(contrastRatio(cat.color, cat.badgeTextColor) >= 4.5, `AQI ${val} badge meets WCAG 2.1 AA >= 4.5:1 contrast`);
+      assert(contrastRatio(cat.displayColor, '#0f172a') >= 4.5, `AQI ${val} dark-card displayColor meets WCAG 2.1 AA >= 4.5:1 contrast`);
     });
+
+    // Ensure sensitive elderly/asthma verdict never contradicts mask=REQUIRED with outdoorExerciseSafe=true
+    const asthmaModVerdict = AQIEngine.getContextDecisionVerdict({ aqi: 90, persona: 'elderly_asthma', hour: 13 });
+    assertEqual(asthmaModVerdict.maskRequired, true, 'Asthma persona requires mask at AQI 90');
+    assertEqual(asthmaModVerdict.outdoorExerciseSafe, false, 'Asthma persona blocks outdoor exercise when mask is required at AQI 90');
+
+    // Verify Very Unhealthy & Sensitive Groups headlines distinguish tiers accurately
+    const usgVerdict = AQIEngine.getContextDecisionVerdict({ aqi: 130, persona: 'family', hour: 8 });
+    assert(usgVerdict.headline.includes('Sensitive'), 'AQI 130 morning headline reflects Sensitive Groups tier');
+    const vUnhVerdict = AQIEngine.getContextDecisionVerdict({ aqi: 260, persona: 'commuter', hour: 20 });
+    assert(vUnhVerdict.headline.includes('Very Unhealthy'), 'AQI 260 evening headline reflects Very Unhealthy tier');
   });
 
   // ==========================================
@@ -371,6 +400,13 @@ async function runAllTests() {
 
     const fitnessRoutine = AQIEngine.getPersonalizedRoutine('fitness_worker', 300);
     assert(fitnessRoutine.priorityAlert.includes('PHYSIOLOGY'), 'Fitness persona includes physiological warning');
+
+    // Context adaptation across clean (AQI 35) vs severe (AQI 400) schedules
+    const cleanFamily = AQIEngine.getPersonalizedRoutine('family', 35);
+    assert(cleanFamily.priorityAlert.includes('CLEAN'), 'Clean AQI adapts family alert to clean window');
+    assert(cleanFamily.morningRoutine !== familyRoutine.morningRoutine, 'Clean AQI adapts morning schedule dynamically');
+    const cleanRunner = AQIEngine.getPersonalizedRoutine('fitness_worker', 40);
+    assert(cleanRunner.morningRoutine.includes('Outdoor runs'), 'Clean AQI allows outdoor runner sessions');
   });
 
   // ==========================================
@@ -470,6 +506,14 @@ async function runAllTests() {
     const leakedMsg = 'Request failed with key AIzaSyD-TestSecret1234567890';
     assert(!GeminiService.redactSecrets(leakedMsg).includes('AIzaSyD'), 'redactSecrets scrubs API keys from error strings');
     assert(GeminiService.redactSecrets(leakedMsg).includes('[REDACTED_KEY]'), 'redactSecrets replaces key with marker');
+    assert(!GeminiService.redactSecrets('Auth AQ.Ab8RN6IR43R79BQq6xxi').includes('Ab8RN6'), 'redactSecrets scrubs AQ token format');
+
+    // Fixed-point nested obfuscation stripping
+    const nestedProto = 'javajavascript:script:alert(1)<sc<script>ript>xss</script>';
+    const scrubbedNested = GeminiService.stripUnsafeTags(nestedProto);
+    assert(!scrubbedNested.toLowerCase().includes('javascript:'), 'stripUnsafeTags defeats nested javascript: obfuscation');
+    assert(!scrubbedNested.includes('<script'), 'stripUnsafeTags defeats nested script tag injection');
+
     assertEqual(GeminiService.isPlausibleApiKey('demo'), false, 'Rejects demo sentinel as live API key');
     assertEqual(GeminiService.isPlausibleApiKey('short'), false, 'Rejects short keys');
     assertEqual(GeminiService.isPlausibleApiKey('AIza key with spaces'), false, 'Rejects keys containing whitespace');
@@ -615,6 +659,8 @@ async function runAllTests() {
     assertEqual(capturedHeaders['x-goog-api-key'], 'AIza-mock-test-key', 'Sends API key securely via x-goog-api-key header');
     assertEqual(capturedBody.model, 'gemini-4-hydrogen', 'Requests gemini-4-hydrogen model');
     assert(capturedBody.store === false, 'Opts out of server-side storage for privacy');
+    assertEqual(capturedBody.generation_config.thinking_level, 'low', 'Configures low thinking_level for responsive interactive chat');
+    assert(capturedBody.generation_config.max_output_tokens >= 32768, 'Sets >= 32768 max_output_tokens per Gemini 4 Hydrogen guidance');
 
     // Session cache hit should return identical result without extra network call
     const cachedResult = await GeminiService.generateAdvice({
@@ -627,6 +673,18 @@ async function runAllTests() {
     });
     assertEqual(cachedResult, 'Live Gemini 4 Hydrogen Advice', 'Session cache returns exact previous response');
     assertEqual(fetchCount, 1, 'Session cache avoids redundant API network call');
+
+    // Distinct conversation history must NOT collide in session cache
+    await GeminiService.generateAdvice({
+      apiKey: 'AIza-mock-test-key',
+      userQuery: 'How to protect infants?',
+      persona: 'family',
+      cityName: 'Delhi-NCR',
+      aqi: 385,
+      category: 'Hazardous',
+      history: [{ role: 'user', content: 'Previous smog question about asthma' }]
+    });
+    assertEqual(fetchCount, 2, 'Distinct conversation history bypasses prior cache entry');
 
     // Test 429 fallback to gemini-3.5-flash-lite
     let callModels = [];
@@ -722,6 +780,19 @@ async function runAllTests() {
     citySel.value = 'london';
     await citySel.dispatch('change');
 
+    // Interactive forecast slot selection updates active hour, selector, & aria-pressed (and toggles off cleanly)
+    timeSel.value = 'auto';
+    await timeSel.dispatch('change');
+    const forecastChildren = mockDoc.getElementById('hourlyForecastGrid').children;
+    assertEqual(forecastChildren[0].tagName, 'BUTTON', 'Hourly forecast cards use semantic interactive button elements');
+    await forecastChildren[14].dispatch('click');
+    assertEqual(AuraAirApp.getState().selectedHour, 14, 'Clicking 14:00 forecast card selects hour 14');
+    assertEqual(forecastChildren[14].getAttribute('aria-pressed'), 'true', 'Active forecast card marks aria-pressed="true"');
+    assertEqual(timeSel.value, '14', 'Clicking custom hour synchronizes time context selector');
+    await forecastChildren[14].dispatch('click');
+    assertEqual(AuraAirApp.getState().selectedHour, null, 'Clicking active forecast card again restores auto clock');
+    assertEqual(forecastChildren[14].getAttribute('aria-pressed'), 'false', 'Deactivated forecast card resets aria-pressed="false"');
+
     // High contrast and colorblind toggles
     const hcBtn = mockDoc.getElementById('highContrastToggle');
     await hcBtn.dispatch('click');
@@ -768,8 +839,10 @@ async function runAllTests() {
     assert(htmlContent.includes('https://generativelanguage.googleapis.com'), 'CSP whitelists official Gemini API endpoint');
     assert(htmlContent.includes('name="referrer" content="no-referrer"'), 'Referrer policy privacy meta tag present');
     assert(cssContent.includes('prefers-reduced-motion'), 'Stylesheet respects prefers-reduced-motion accessibility preference');
+    assert(cssContent.includes('body.high-contrast .aqi-badge'), 'High-contrast mode overrides inline badge colors for AAA compliance');
     assert(geminiContent.includes('AbortController'), 'Gemini client enforces fetch timeout via AbortController');
     assert(appContent.includes('sessionStorage'), 'API key uses volatile sessionStorage isolation');
+    assert(appContent.includes('@param'), 'app.js documents functions with JSDoc annotations');
 
     // Verify no duplicate HTML id attributes
     const idMatches = [...htmlContent.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);

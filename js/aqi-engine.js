@@ -209,10 +209,10 @@
 
   /**
    * Get health category metadata for a given US EPA AQI value.
-   * Includes WCAG 2.1 AA/AAA compliant badge foreground/background pairs.
+   * Includes WCAG 2.1 AA/AAA compliant dark-surface displayColor and badge pairs.
    *
    * @param {number} aqi - Overall AQI value
-   * @returns {Object} Category info with color, badgeTextColor, shortLabel, label, level, statusKey, and actions
+   * @returns {Object} Category info with color, displayColor, badgeTextColor, shortLabel, label, level, statusKey, and actions
    */
   function getAQICategory(aqi) {
     const parsed = Number(aqi);
@@ -225,6 +225,7 @@
         statusKey: 'good',
         level: 1,
         color: '#10b981',
+        displayColor: '#34d399',
         badgeTextColor: '#022c22',
         badge: '🟢',
         textColor: '#064e3b',
@@ -242,6 +243,7 @@
         statusKey: 'moderate',
         level: 2,
         color: '#f59e0b',
+        displayColor: '#fbbf24',
         badgeTextColor: '#1c1917',
         badge: '🟡',
         textColor: '#78350f',
@@ -259,6 +261,7 @@
         statusKey: 'moderate',
         level: 3,
         color: '#f97316',
+        displayColor: '#fb923c',
         badgeTextColor: '#1c1917',
         badge: '🟠',
         textColor: '#7c2d12',
@@ -276,6 +279,7 @@
         statusKey: 'unhealthy',
         level: 4,
         color: '#dc2626',
+        displayColor: '#f87171',
         badgeTextColor: '#ffffff',
         badge: '🔴',
         textColor: '#7f1d1d',
@@ -293,6 +297,7 @@
         statusKey: 'unhealthy',
         level: 5,
         color: '#7c3aed',
+        displayColor: '#c084fc',
         badgeTextColor: '#ffffff',
         badge: '🟣',
         textColor: '#4c1d95',
@@ -309,6 +314,7 @@
       statusKey: 'hazardous',
       level: 6,
       color: '#be123c',
+      displayColor: '#fb7185',
       badgeTextColor: '#ffffff',
       badge: '🟤',
       textColor: '#450a0a',
@@ -426,19 +432,29 @@
     const sensitivePersona = persona === 'family' || persona === 'elderly_asthma';
     const ventilateNow = safeAqi <= 100 || (isDipWindow && safeAqi <= 180 && !sensitivePersona);
     const maskRequired = safeAqi > 100 || (sensitivePersona && safeAqi > 80);
-    const outdoorExerciseSafe = safeAqi <= 100 && !isPeakInversion;
+    const outdoorExerciseSafe = !isPeakInversion && (sensitivePersona ? safeAqi <= 75 : safeAqi <= 100);
 
     let headline = 'Moderate Air — Observe Sensitive Precautions';
     if (safeAqi > 300) {
       headline = isDipWindow
         ? 'Severe Inversion Alert — Brief 10-Min Filter Flush Only; Keep N95 On Outside'
         : 'Smog Emergency — Seal Windows, Run Indoor Filtration & Avoid Outdoor Exertion';
+    } else if (safeAqi > 200) {
+      headline = isDipWindow
+        ? 'Very Unhealthy Smog — Limit Trips Strictly to Midday Dip With Tight N95'
+        : 'Very Unhealthy Inversion Alert — Seal Living Spaces & Activate Indoor Filtration';
     } else if (safeAqi > 150) {
       headline = isDipWindow
         ? 'Convective Dip Window Active — Best Period for Essential Errands with N95'
         : 'Unhealthy Smog Layer — Stay Indoors Until 12:30 PM Convective Dispersion';
+    } else if (safeAqi > 100) {
+      headline = isDipWindow && !sensitivePersona
+        ? 'Sensitive Groups Alert — Brief Midday Flushing Acceptable; Mask During Transit'
+        : 'Sensitive Groups Alert — Keep Kids & Asthma Patients Indoors Until 12:30 PM Dip';
     } else if (safeAqi <= 50) {
       headline = 'Clean Air — Natural Cross-Ventilation & Outdoor Exercise Safe';
+    } else if (sensitivePersona && isPeakInversion) {
+      headline = 'Moderate Inversion — Delay Sensitive Outdoor Exertion Until Midday Dip';
     }
 
     return {
@@ -454,71 +470,166 @@
   }
 
   /**
-   * Generates actionable daily routine schedule based on user persona and current AQI
+   * Generates actionable daily routine schedule adapting cleanly across persona and AQI tier
+   * (Clean <= 100, Elevated 101-200, Severe > 200).
    *
    * @param {string} persona - 'family', 'elderly_asthma', 'commuter', 'fitness_worker', 'community'
    * @param {number} aqi - Current AQI value
    * @returns {Object} Tailored routine schedule and high-priority tips
    */
   function getPersonalizedRoutine(persona, aqi) {
-    const val = Number(aqi) || 200;
-    const isSevere = val > 200;
+    const val = Number.isFinite(Number(aqi)) ? Math.max(0, Number(aqi)) : 200;
+    const tier = val > 200 ? 'severe' : val > 100 ? 'elevated' : 'clean';
+
+    const byTier = (clean, elevated, severe) => (
+      tier === 'severe' ? severe : tier === 'elevated' ? elevated : clean
+    );
 
     const routines = {
       family: {
         title: 'Child & Family Smog Defense Routine',
         targetGroup: 'Households with infants, toddlers & school-age children',
-        priorityAlert: isSevere
-          ? 'CRITICAL: Severe smog triggers rapid bronchiolitis in young lungs. Seal nurseries.'
-          : 'MODERATE: Keep child playtime indoors during early morning hours.',
-        morningRoutine: '07:00 - 09:00: Keep windows sealed. Do not send children for open-ground assembly. Stroller cover / child-fit N95 for school drop-offs.',
-        middayRoutine: '12:30 - 14:30: Convective window open. Run 15-minute cross-ventilation only if indoor PM2.5 exceeds outdoor levels. Run Corsi-Rosenthal filter.',
-        eveningRoutine: '17:00 - 19:30: Switch cooking to induction or use high-powered range hood to avoid indoor VOC + PM2.5 co-spikes.',
-        nightRoutine: '20:00 - 06:00: Run bedroom air purifier on low whisper mode. Maintain 40-50% indoor relative humidity to settle airborne dust.'
+        priorityAlert: byTier(
+          'CLEAN WINDOW: Air quality supports normal school play; sustain low-emission habits.',
+          'ELEVATED RISK: Limit prolonged intense outdoor sports for young children.',
+          'CRITICAL: Severe smog triggers rapid bronchiolitis in young lungs. Seal nurseries.'
+        ),
+        morningRoutine: byTier(
+          '07:00 - 09:00: Natural school commute safe; walk or take zero-emission transit away from heavy idling zones.',
+          '07:00 - 09:00: Move morning assembly indoors; keep car climate control on recirculate during school drop-offs.',
+          '07:00 - 09:00: Keep windows sealed. Do not send children for open-ground assembly. Stroller cover / child-fit N95 for school drop-offs.'
+        ),
+        middayRoutine: byTier(
+          '12:30 - 14:30: Flush bedrooms and classrooms with 30-minute cross-ventilation and outdoor recess.',
+          '12:30 - 14:30: Best window for brief park play and 20-minute cross-ventilation before evening cooling.',
+          '12:30 - 14:30: Convective window open. Run 15-minute cross-ventilation only if indoor PM2.5 exceeds outdoor levels. Run Corsi-Rosenthal filter.'
+        ),
+        eveningRoutine: byTier(
+          '17:00 - 19:30: Run kitchen exhaust fan while cooking to clear VOCs and moisture cleanly.',
+          '17:00 - 19:30: Close street-facing windows as rush hour begins; prioritize pressure-cooking or steamed meals.',
+          '17:00 - 19:30: Switch cooking to induction or use high-powered range hood to avoid indoor VOC + PM2.5 co-spikes.'
+        ),
+        nightRoutine: byTier(
+          '20:00 - 06:00: Slightly cracked upper vent keeps bedroom CO2 low; keep Snake Plants beside beds.',
+          '20:00 - 06:00: Run purifier on sleep setting in children’s bedrooms once outside AQI rises.',
+          '20:00 - 06:00: Run bedroom air purifier on low whisper mode. Maintain 40-50% indoor relative humidity to settle airborne dust.'
+        )
       },
       elderly_asthma: {
         title: 'Respiratory & Cardiac Safety Routine',
         targetGroup: 'Seniors, COPD, asthma, and chronic bronchitis sufferers',
-        priorityAlert: isSevere
-          ? 'HIGH RISK: Thermal inversion PM2.5 can provoke bronchospasms. Keep rescue inhaler close.'
-          : 'ADVISORY: Monitor peak expiratory flow and stay in filtered indoor zones.',
-        morningRoutine: '06:00 - 09:30: Strictly cancel morning walks. Cold air + PM2.5 creates acute airway resistance. Practice indoor stretching instead.',
-        middayRoutine: '13:00 - 14:00: Safest period for essential clinic visits or doctor appointments when inversion layer breaks.',
-        eveningRoutine: '17:30 - 20:00: Avoid exposure to burning incense, mosquito coils, or frying oil fumes.',
-        nightRoutine: '21:00 - 06:00: Position DIY HEPA filter 1 meter away from bedhead. Warm steam inhalation if experiencing airway tickle.'
+        priorityAlert: byTier(
+          'FAVORABLE AIR: Maintain routine medication and monitor evening chill sensitivity.',
+          'CAUTION: Elevated particulates may trigger wheezing; carry rescue inhaler outdoors.',
+          'HIGH RISK: Thermal inversion PM2.5 can provoke bronchospasms. Keep rescue inhaler close.'
+        ),
+        morningRoutine: byTier(
+          '06:00 - 09:30: Gentle outdoor walk after sunrise warmup away from arterial road exhaust.',
+          '06:00 - 09:30: Wait until after 10:00 AM warmth or complete light mobility indoors with scarf over nose.',
+          '06:00 - 09:30: Strictly cancel morning walks. Cold air + PM2.5 creates acute airway resistance. Practice indoor stretching instead.'
+        ),
+        middayRoutine: byTier(
+          '13:00 - 14:00: Ideal afternoon sunshine period for errands, light gardening, and cross-ventilation.',
+          '13:00 - 14:00: Preferred window for clinic visits wearing an N95 mask on high-traffic routes.',
+          '13:00 - 14:00: Safest period for essential clinic visits or doctor appointments when inversion layer breaks.'
+        ),
+        eveningRoutine: byTier(
+          '17:30 - 20:00: Avoid direct smoke from kitchen tempering or candles by running exhaust.',
+          '17:30 - 20:00: Move evening stroll indoors and keep bedroom door shut during kitchen cooking.',
+          '17:30 - 20:00: Avoid exposure to burning incense, mosquito coils, or frying oil fumes.'
+        ),
+        nightRoutine: byTier(
+          '21:00 - 06:00: Sleep in ventilated room; record baseline peak flow reading weekly.',
+          '21:00 - 06:00: Seal bedroom windows and run whisper-mode HEPA/Corsi-Rosenthal purifier overnight.',
+          '21:00 - 06:00: Position DIY HEPA filter 1 meter away from bedhead. Warm steam inhalation if experiencing airway tickle.'
+        )
       },
       commuter: {
         title: 'Low-Emission & In-Transit Defense Routine',
         targetGroup: 'Daily urban commuters, office workers & students',
-        priorityAlert: isSevere
-          ? 'TRANSIT ALERT: In-cabin pollution on congested roads is 3x ambient level without recirculate.'
-          : 'SUSTAINABLE CHOICES: Opt for electric metro over single-occupancy vehicles.',
-        morningRoutine: '07:30 - 09:30: Shift commute by 30-45 minutes or request WFH. If driving, set AC to INTERNAL RECIRCULATION mode immediately.',
-        middayRoutine: '12:00 - 14:00: Walk to lunch only in covered corridors or wear well-fitted KF94/N95 respirator.',
-        eveningRoutine: '18:00 - 20:30: Opt for electric metro transit. Carpool to remove individual tailpipe emissions.',
-        nightRoutine: '21:00+: Change clothes upon entering home; wipe shoes and rinse eyes with sterile saline.'
+        priorityAlert: byTier(
+          'GREEN TRANSIT OPPORTUNITY: Ideal day for cycling, walking, or metro to keep AQI low.',
+          'TRANSIT SHIELD: Busy corridors exceed neighborhood averages; favor enclosed electric metro.',
+          'TRANSIT ALERT: In-cabin pollution on congested roads is 3x ambient level without recirculate.'
+        ),
+        morningRoutine: byTier(
+          '07:30 - 09:30: Cycle, walk, or take electric metro instead of solo petrol/diesel commuting.',
+          '07:30 - 09:30: Prefer electric metro or bus with windows closed; engage car AC recirculation on highways.',
+          '07:30 - 09:30: Shift commute by 30-45 minutes or request WFH. If driving, set AC to INTERNAL RECIRCULATION mode immediately.'
+        ),
+        middayRoutine: byTier(
+          '12:00 - 14:00: Outdoor lunch walks are comfortable; recharge at green transit corridors.',
+          '12:00 - 14:00: Best time for client errands; carry a spare KF94 mask when near arterial bottlenecks.',
+          '12:00 - 14:00: Walk to lunch only in covered corridors or wear well-fitted KF94/N95 respirator.'
+        ),
+        eveningRoutine: byTier(
+          '18:00 - 20:30: Continue metro or 4-person carpool return commute to cut peak carbon output.',
+          '18:00 - 20:30: Avoid open-air two-wheeler bottlenecks; take elevated rail or masked bus transit.',
+          '18:00 - 20:30: Opt for electric metro transit. Carpool to remove individual tailpipe emissions.'
+        ),
+        nightRoutine: byTier(
+          '21:00+: Prep low-emission gear (metro smartcard / e-bike charge) for tomorrow.',
+          '21:00+: Wash face and rinse nasal passage after heavy traffic exposure.',
+          '21:00+: Change clothes upon entering home; wipe shoes and rinse eyes with sterile saline.'
+        )
       },
       fitness_worker: {
         title: 'Athlete & Outdoor Workforce Safety Routine',
         targetGroup: 'Runners, cyclists, delivery partners, and construction personnel',
-        priorityAlert: isSevere
-          ? 'PHYSIOLOGY WARNING: Aerobic breathing increases deep lung particle intake by 450%!'
-          : 'SCHEDULE SHIFT: Reschedule cardio workouts to mid-afternoon smog dip.',
-        morningRoutine: '06:00 - 08:30: Do NOT perform outdoor cardio or jogging. Switch to indoor bodyweight training or yoga.',
-        middayRoutine: '13:00 - 15:00: If outdoor training is mandatory, this 2-hour convective window has the lowest ground-level PM2.5 concentration.',
-        eveningRoutine: '17:00 - 20:00: Delivery riders and street workers must wear valved or non-valved N95/FFP2 masks with adjustable nose clip.',
-        nightRoutine: '21:00+: Hydrate with warm water and antioxidants (Vitamin C & E) to reduce free radical oxidative stress.'
+        priorityAlert: byTier(
+          'OPTIMAL TRAINING CONDITIONS: Full outdoor endurance sessions safe in parks and green zones.',
+          'INTENSITY MODULATION: Lower outdoor tempo or wear valved FFP2 beside dense traffic.',
+          'PHYSIOLOGY WARNING: Aerobic breathing increases deep lung particle intake by 450%!'
+        ),
+        morningRoutine: byTier(
+          '06:00 - 08:30: Outdoor runs and high-aerobic intervals safe on park trails away from bus corridors.',
+          '06:00 - 08:30: Shift threshold intervals indoors; keep outdoor activity to moderate pace after 09:30.',
+          '06:00 - 08:30: Do NOT perform outdoor cardio or jogging. Switch to indoor bodyweight training or yoga.'
+        ),
+        middayRoutine: byTier(
+          '13:00 - 15:00: Stay hydrated; coordinate midday delivery routes during clean convective breeze.',
+          '13:00 - 15:00: Ideal 2-hour convective window for outdoor speed workouts and heavy field shifts.',
+          '13:00 - 15:00: If outdoor training is mandatory, this 2-hour convective window has the lowest ground-level PM2.5 concentration.'
+        ),
+        eveningRoutine: byTier(
+          '17:00 - 20:00: High visibility vests and light protective mask near smoky intersection bottlenecks.',
+          '17:00 - 20:00: Delivery riders should put on a snug FFP2 mask once evening rush exhaust climbs.',
+          '17:00 - 20:00: Delivery riders and street workers must wear valved or non-valved N95/FFP2 masks with adjustable nose clip.'
+        ),
+        nightRoutine: byTier(
+          '21:00+: Standard protein/electrolyte recovery and full window sleep hygiene.',
+          '21:00+: Warm hydration + nasal saline rinse after evening field shift.',
+          '21:00+: Hydrate with warm water and antioxidants (Vitamin C & E) to reduce free radical oxidative stress.'
+        )
       },
       community: {
         title: 'Community & Neighborhood Smog Mitigation Routine',
         targetGroup: 'Resident Welfare Associations (RWAs), apartment societies, and local leaders',
-        priorityAlert: isSevere
-          ? 'COLLECTIVE ACTION: Mobilize society-wide anti-burning patrols and shared green transit.'
-          : 'PREVENTION: Monitor local waste management and promote shared carpooling.',
-        morningRoutine: '07:00 - 10:00: Enforce strict ban on leaf or municipal waste burning in the neighborhood. Coordinate school carpools.',
-        middayRoutine: '12:00 - 15:00: Water-sprinkling on unpaved society roads to suppress re-suspended particulate dust.',
-        eveningRoutine: '18:00 - 21:00: Provide security guards and maintenance staff with certified N95 masks and electric room heaters (banning coal braziers).',
-        nightRoutine: '22:00 - 05:00: Set up communal DIY Corsi-Rosenthal boxes in clubhouses and guard booths.'
+        priorityAlert: byTier(
+          'PROACTIVE STEWARDSHIP: Sustain zero waste-burning compliance and neighborhood carpool circles.',
+          'PREVENTATIVE SURVEILLANCE: Ramp up water misting and transition staff away from biomass heat.',
+          'COLLECTIVE ACTION: Mobilize society-wide anti-burning patrols and shared green transit.'
+        ),
+        morningRoutine: byTier(
+          '07:00 - 10:00: Share daily AQI bulletin and encourage walking-bus / metro feeder carpools.',
+          '07:00 - 10:00: Issue advisories for indoor PE periods and coordinate neighborhood school carpools.',
+          '07:00 - 10:00: Enforce strict ban on leaf or municipal waste burning in the neighborhood. Coordinate school carpools.'
+        ),
+        middayRoutine: byTier(
+          '12:00 - 15:00: Sweep dry leaves for composting (never burning) during breezy midday hours.',
+          '12:00 - 15:00: Damp-sweep construction perimeters and unpaved access lanes.',
+          '12:00 - 15:00: Water-sprinkling on unpaved society roads to suppress re-suspended particulate dust.'
+        ),
+        eveningRoutine: byTier(
+          '18:00 - 21:00: Inspect waste pits to maintain zero-burn status and provide reflective gear to guards.',
+          '18:00 - 21:00: Supply electric heaters and FFP2 masks to night security shifts.',
+          '18:00 - 21:00: Provide security guards and maintenance staff with certified N95 masks and electric room heaters (banning coal braziers).'
+        ),
+        nightRoutine: byTier(
+          '22:00 - 05:00: Keep shared community lobbies ventilated cleanly and monitor neighborhood sensor trends.',
+          '22:00 - 05:00: Run MERV-13 Corsi-Rosenthal filtration in guard cabins during overnight inversion hours.',
+          '22:00 - 05:00: Set up communal DIY Corsi-Rosenthal boxes in clubhouses and guard booths.'
+        )
       }
     };
 
