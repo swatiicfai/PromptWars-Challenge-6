@@ -21,7 +21,9 @@ const OFFLINE_ASSETS = [
   './js/impact-calculator.js',
   './js/gemini.js',
   './js/app.js',
-  './manifest.json'
+  './manifest.json',
+  './robots.txt',
+  './sitemap.xml'
 ];
 
 /**

@@ -853,6 +853,22 @@ async function runAllTests() {
     const sourceFiles = ['index.html', 'js/aqi-engine.js', 'js/impact-calculator.js', 'js/gemini.js', 'js/app.js'];
     const hasHardcodedSecret = sourceFiles.some(rel => /AIza[0-9A-Za-z_-]{20,}/.test(fs.readFileSync(path.join(rootDir, rel), 'utf8')));
     assert(!hasHardcodedSecret, 'Zero hardcoded API keys in repository source files');
+
+    // Open Graph and social meta tags
+    assert(htmlContent.includes('property="og:title"'), 'index.html includes Open Graph og:title meta tag');
+    assert(htmlContent.includes('property="og:description"'), 'index.html includes Open Graph og:description meta tag');
+    assert(htmlContent.includes('name="twitter:card"'), 'index.html includes Twitter Card meta tag');
+    assert(htmlContent.includes('rel="canonical"'), 'index.html declares canonical URL for SEO');
+    assert(htmlContent.includes('Permissions-Policy'), 'index.html enforces Permissions-Policy restricting camera/mic/geolocation');
+    assert(htmlContent.includes('rel="preload"'), 'index.html uses resource preload hints for critical assets');
+    assert(htmlContent.includes('name="keywords"'), 'index.html provides descriptive meta keywords');
+
+    // robots.txt and sitemap present
+    assert(fs.existsSync(path.join(rootDir, 'robots.txt')), 'robots.txt present for crawler guidance');
+    assert(fs.existsSync(path.join(rootDir, 'sitemap.xml')), 'sitemap.xml present for search engine indexing');
+    const robotsContent = fs.readFileSync(path.join(rootDir, 'robots.txt'), 'utf8');
+    assert(robotsContent.includes('User-agent: *'), 'robots.txt declares User-agent wildcard rule');
+    assert(robotsContent.includes('Allow: /'), 'robots.txt allows full site crawling');
   });
 
   // ==========================================
@@ -885,6 +901,9 @@ async function runAllTests() {
     assert(swContent.includes('generativelanguage.googleapis.com'), 'Service Worker bypasses cache for Gemini API calls (network-only)');
     assert(swContent.includes('clients.claim'), 'Service Worker claims clients on activation for immediate control');
     assert(htmlContent.includes('serviceWorker'), 'index.html registers Service Worker via navigator.serviceWorker');
+
+    assert(swContent.includes('robots.txt'), 'Service Worker pre-caches robots.txt for full offline support');
+    assert(swContent.includes('sitemap.xml'), 'Service Worker pre-caches sitemap.xml for full offline support');
 
     // CHANGELOG present and structured
     assert(fs.existsSync(path.join(rootDir, 'CHANGELOG.md')), 'CHANGELOG.md documents version history');

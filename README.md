@@ -6,7 +6,7 @@
 [![Live Demo](https://img.shields.io/badge/🌐%20Live%20Demo-GitHub%20Pages-22c55e?style=for-the-badge)](https://swatiicfai.github.io/PromptWars-Challenge-6/)
 [![Demo Video](https://img.shields.io/badge/🎥%20Demo%20Video-YouTube-FF0000?style=for-the-badge&logo=youtube)](https://youtu.be/qthQHZ2rPMs)
 [![CI Pipeline](https://img.shields.io/badge/CI%20Pipeline-Passing-22c55e?style=for-the-badge&logo=githubactions)](.github/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/Tests-252%2F252%20Passed-10b981?style=for-the-badge)](tests/run-tests.js)
+[![Tests Passing](https://img.shields.io/badge/Tests-265%2F265%20Passed-10b981?style=for-the-badge)](tests/run-tests.js)
 [![GenAI](https://img.shields.io/badge/GenAI-Gemini%204%20Hydrogen-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
 [![Accessibility](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA%2FAAA-06b6d4?style=for-the-badge)](#-evaluation-criteria-mapping)
 [![Repo Size](https://img.shields.io/badge/Repo%20Size-%3C%201%20MB-8b5cf6?style=for-the-badge)](#-evaluation-criteria-mapping)
@@ -118,7 +118,7 @@ Surface cooling during winter nights traps particulate emissions near ground lev
 | **Code Quality** | Modular UMD JS (`aqi-engine.js`, `impact-calculator.js`, `gemini.js`, `app.js`), strict mode, JSDoc annotations, monotonic EPA/NAQI bracket bridging, `.eslintrc.json`, `.editorconfig`, self-contained CSS (`css/styles.css`). | `npm run validate` & modular architecture ([ARCHITECTURE.md](ARCHITECTURE.md)) |
 | **Security** | Strict self-contained CSP (`script-src 'self'`, zero `'unsafe-eval'`, `'unsafe-inline'`, or external font CDNs), `no-referrer` policy, volatile `sessionStorage` key isolation, header `x-goog-api-key`, `store: false`, key redaction, HTML/event-handler/boundary-tag stripping (1,000-char cap). | Documented in [SECURITY.md](SECURITY.md) & Suite 8 + Suite 13 |
 | **Efficiency** | Zero npm runtime dependencies and zero third-party CDNs (< 1 MB repo); `DocumentFragment` batched DOM inserts; `requestAnimationFrame` slider throttling; forecast render memoization; 600 ms rate throttle + 25s `AbortController` timeout + 20-entry LRU session response cache; **PWA Service Worker** (`sw.js`) with cache-first strategy enabling full offline operation for all deterministic features. | Repo size check in [ci.yml](.github/workflows/ci.yml) |
-| **Testing** | 252 automated unit, integration, mocked API, cache, DOM/UI, accessibility, and static security checks with 100% pass rate. | `node tests/run-tests.js` |
+| **Testing** | 265 automated unit, integration, mocked API, cache, DOM/UI, accessibility, and static security checks with 100% pass rate. | `node tests/run-tests.js` |
 | **Accessibility** | WCAG 2.1 AA/AAA badge & text contrast pairs, skip link, `aria-live` polite announcements, `aria-busy` async state, WAI-ARIA keyboard tabs (`ArrowLeft`/`ArrowRight`/`Home`/`End`), `Escape` toast dismissal, `@media (prefers-reduced-motion: reduce)` & `prefers-contrast: more`, High-Contrast AAA mode, and patterned Colorblind mode. | Verified in Suite 12 & `index.html` |
 | **Problem Alignment** | Covers all Challenge 6 expectations: thermal inversion cycle modeling, dynamic time-context simulator, meteorological telemetry (temp/RH/driver), 5 persona routines, IAQ DIY blueprints, ICRP inhalation dose, Defra carbon math, and context-chained GenAI assistant. | All 5 interactive tabs + Live Context Decision Engine |
 
@@ -132,7 +132,7 @@ Run the zero-dependency automated verification suite locally:
 node tests/run-tests.js
 ```
 
-All **252/252** tests pass across 13 suites covering US EPA & Indian NAQI math, monotonic gap bridging, thermal inversion forecasting, persona routines, inhalation physics, carbon calculations, community scoring, XSS/injection sanitization, secret redaction, Markdown rendering, Gemini Interactions API mocking, LRU caching, DOM/accessibility integration, and static CSP/HTML security checks.
+All **265/265** tests pass across 13 suites covering US EPA & Indian NAQI math, monotonic gap bridging, thermal inversion forecasting, persona routines, inhalation physics, carbon calculations, community scoring, XSS/injection sanitization, secret redaction, Markdown rendering, Gemini Interactions API mocking, LRU caching, DOM/accessibility integration, and static CSP/HTML security checks.
 
 ---
 

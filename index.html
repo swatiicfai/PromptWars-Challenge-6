@@ -6,13 +6,38 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff" />
   <meta name="referrer" content="no-referrer" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://generativelanguage.googleapis.com; base-uri 'self'; form-action 'self'; object-src 'none';" />
+  <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=()" />
   <meta name="description" content="AuraAir - GenAI-powered Urban Air Quality Assistant helping families and communities navigate severe winter smog and thermal inversion." />
+  <meta name="keywords" content="air quality, AQI, PM2.5, winter smog, thermal inversion, Gemini AI, urban health, NAQI, air pollution, Delhi, Beijing, clean air" />
+  <meta name="author" content="Swati Gupta" />
   <meta name="theme-color" content="#090d16" />
+
+  <!-- Open Graph / Social sharing -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="AuraAir – Urban Air Quality & Winter Smog Defense Assistant" />
+  <meta property="og:description" content="GenAI-powered Urban Air Quality Assistant for families and communities navigating severe winter smog and thermal inversions. Powered by Gemini 4 Hydrogen." />
+  <meta property="og:url" content="https://swatiicfai.github.io/PromptWars-Challenge-6/" />
+  <meta property="og:site_name" content="AuraAir" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="AuraAir – Urban Air Quality Assistant" />
+  <meta name="twitter:description" content="Gemini 4 Hydrogen-powered smog defense app for families, elderly, commuters and communities. Zero external dependencies." />
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://swatiicfai.github.io/PromptWars-Challenge-6/" />
+
   <title>AuraAir – Urban Air Quality &amp; Smog Defense Assistant</title>
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d9488'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='36'%3E%F0%9F%8D%83%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='42' fill='%230d9488'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='108'%3E%F0%9F%8D%83%3C/text%3E%3C/svg%3E" />
+
+  <!-- Critical resource preloads for sub-100ms first paint -->
+  <link rel="preload" href="css/styles.css" as="style" />
+  <link rel="preload" href="js/aqi-engine.js" as="script" />
+  <link rel="preload" href="js/app.js" as="script" />
+
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body class="app-body">

@@ -1,0 +1,7 @@
+# AuraAir – Urban Air Quality Assistant
+# https://swatiicfai.github.io/PromptWars-Challenge-6/
+
+User-agent: *
+Allow: /
+
+Sitemap: https://swatiicfai.github.io/PromptWars-Challenge-6/sitemap.xml
