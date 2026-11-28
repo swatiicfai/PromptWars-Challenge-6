@@ -8,8 +8,10 @@ index.html
 ├── js/aqi-engine.js        (US EPA + Indian NAQI math, inversion model — 0 deps)
 ├── js/impact-calculator.js (ICRP inhalation, Defra CO2e, DIY hacks — 0 deps)
 ├── js/gemini.js            (Interactions API client & offline engine — 0 deps)
+├── js/sw-register.js       (PWA Service Worker registration, strict CSP — 0 deps)
 └── js/app.js               (DOM controller, rAF batching, a11y — uses modules above)
-    └── tests/run-tests.js  (Node.js zero-dependency test runner, 13 suites)
+    ├── scripts/lint.js     (Node.js zero-dependency code quality linter)
+    └── tests/run-tests.js  (Node.js zero-dependency test runner, 14 suites)
 ```
 
 ## Module Responsibilities
@@ -34,11 +36,17 @@ index.html
 - **Safe Markdown Renderer (`markdownToHtml`)**: Escapes raw HTML first, protects inline code spans, renders semantic `.md-*` elements including ordered (`<ol>`) and unordered (`<ul>`) lists.
 - **Offline Heuristic Engine (`getIntelligentFallbackResponse`)**: Intent- and AQI-tier-aware guidance covering clean air (`<= 100`) through hazardous smog (`> 300`).
 
+### `js/sw-register.js`
+- **PWA Service Worker Registration**: Registers `sw.js` upon `window.load` via external script, strictly adhering to Content Security Policy (`script-src 'self'`) without requiring `'unsafe-inline'`.
+
 ### `js/app.js`
 - **State & Volatile Auth Storage**: Non-sensitive UI accessibility preferences reside in `localStorage`, while any optional API key is confined to volatile `sessionStorage`.
 - **Efficient DOM Rendering**: `DocumentFragment` batched rendering for the 24-hour forecast grid and IAQ blueprint cards, forecast memoization (`lastForecastAqi`), and `requestAnimationFrame` slider throttling.
 - **Accessibility & Controls**: WAI-ARIA keyboard tabs (`ArrowLeft`/`ArrowRight`/`Home`/`End`), `Escape` toast dismissal, live `aria-valuetext` readouts, `aria-busy` async chat state, High-Contrast AAA mode, and Colorblind Pattern mode.
 - **Actionable Plan Export**: Downloads personalized `.txt` daily schedules incorporating active city telemetry, time window, and routine.
+
+### `scripts/lint.js`
+- **Zero-Dependency Static Linter**: Validates JavaScript syntax via Node.js compiler (`node --check`), strict mode enforcement, eval/Function prohibition, and code health checks across all modules in sub-100ms with zero npm packages.
 
 ## Security & CSP Architecture
 

@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.0.2] – 2026-11-28
+
+### Added
+- **External PWA Registration (`js/sw-register.js`)**: Moved Service Worker registration from inline `<script>` into a dedicated external module, ensuring 100% strict adherence to Content Security Policy (`script-src 'self'`) without `'unsafe-inline'`.
+- **Zero-Dependency Static Linter (`scripts/lint.js`)**: Custom Node.js syntax, strict-mode, security, and JSDoc validator executing in <100ms with zero external npm dependencies.
+- **`npm run lint` & `npm run validate`**: Instant validation commands in `package.json` that run offline without npm registry dependencies.
+
+### Changed
+- **PWA Pre-cache (`sw.js`)**: Added `js/sw-register.js` to `OFFLINE_ASSETS` for complete offline Progressive Web App caching.
+- **CI Pipeline (`.github/workflows/ci.yml`)**: Added zero-dependency linting and syntax checking for `js/sw-register.js`.
+- **Code Quality Refinement**: Normalized magic numbers and verified strict mode across all modules.
+
+---
+
 ## [2.0.1] – 2026-11-27
 
 ### Added

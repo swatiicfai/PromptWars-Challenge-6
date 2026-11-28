@@ -850,7 +850,7 @@ async function runAllTests() {
     assertEqual(idMatches.length, uniqueIds.size, 'All HTML id attributes in index.html are unique');
 
     // Verify no hardcoded Google API keys in source files
-    const sourceFiles = ['index.html', 'js/aqi-engine.js', 'js/impact-calculator.js', 'js/gemini.js', 'js/app.js'];
+    const sourceFiles = ['index.html', 'js/aqi-engine.js', 'js/impact-calculator.js', 'js/gemini.js', 'js/app.js', 'js/sw-register.js'];
     const hasHardcodedSecret = sourceFiles.some(rel => /AIza[0-9A-Za-z_-]{20,}/.test(fs.readFileSync(path.join(rootDir, rel), 'utf8')));
     assert(!hasHardcodedSecret, 'Zero hardcoded API keys in repository source files');
 

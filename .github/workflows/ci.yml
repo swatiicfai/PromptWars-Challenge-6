@@ -46,8 +46,12 @@ jobs:
           node --check js/impact-calculator.js
           node --check js/gemini.js
           node --check js/app.js
+          node --check js/sw-register.js
           node --check tests/run-tests.js
           echo "All JavaScript modules passed syntax check ✅"
+
+      - name: Zero-Dependency Code Quality & Lint Audit
+        run: node scripts/lint.js
 
       - name: Validate HTML Structure
         run: |

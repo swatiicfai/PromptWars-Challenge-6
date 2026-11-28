@@ -7,8 +7,9 @@
     "test": "node tests/run-tests.js",
     "test:watch": "node --watch tests/run-tests.js",
     "start": "npx serve .",
-    "lint": "npx eslint js/*.js tests/*.js",
-    "validate": "node --check js/aqi-engine.js && node --check js/impact-calculator.js && node --check js/gemini.js && node --check js/app.js"
+    "lint": "node scripts/lint.js",
+    "validate": "node scripts/lint.js",
+    "ci": "node scripts/lint.js && node tests/run-tests.js"
   },
   "engines": {
     "node": ">=18.0.0"
